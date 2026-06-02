@@ -1,0 +1,56 @@
+# ── Environment ───────────────────────────────
+.env
+.env.local
+.env.production
+.env.*.local
+
+# ── Node / Next.js ────────────────────────────
+node_modules/
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+.vercel
+
+# ── Python ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+.Python
+env/
+venv/
+.venv/
+*.egg-info/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Docker ────────────────────────────────────
+# (keep compose files, ignore volumes)
+
+# ── Database ──────────────────────────────────
+*.db
+*.sqlite3
+
+# ── Logs ──────────────────────────────────────
+*.log
+logs/
+
+# ── OS ────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ── Test coverage ─────────────────────────────
+coverage/
+.coverage
+htmlcov/
+
+# ── Uploads / Generated ───────────────────────
+uploads/
+reports/generated/

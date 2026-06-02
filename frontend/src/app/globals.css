@@ -1,0 +1,163 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 221 83% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 221 83% 53%;
+    --radius: 0.625rem;
+    --chart-1: 221 83% 53%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 24 95% 53%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 272 91% 65%;
+    --font-inter: "Inter", sans-serif;
+    --font-jetbrains-mono: "JetBrains Mono", monospace;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 213 31% 91%;
+    --card: 222 47% 8%;
+    --card-foreground: 213 31% 91%;
+    --popover: 222 47% 8%;
+    --popover-foreground: 213 31% 91%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 222 47% 12%;
+    --secondary-foreground: 213 31% 91%;
+    --muted: 222 47% 12%;
+    --muted-foreground: 215 20% 55%;
+    --accent: 222 47% 12%;
+    --accent-foreground: 213 31% 91%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 222 47% 16%;
+    --input: 222 47% 14%;
+    --ring: 217 91% 60%;
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 76% 46%;
+    --chart-3: 24 95% 53%;
+    --chart-4: 0 84% 60%;
+    --chart-5: 272 91% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+/* ── Custom Scrollbar ────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-border;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/40;
+}
+
+/* ── Chat Bubble Prose ───────────────────────────────────────────────────── */
+.chat-prose {
+  @apply text-sm leading-relaxed;
+}
+
+.chat-prose p {
+  @apply mb-2 last:mb-0;
+}
+
+.chat-prose strong {
+  @apply font-semibold;
+}
+
+.chat-prose ul {
+  @apply mb-2 ml-4 list-disc;
+}
+
+.chat-prose li {
+  @apply mb-1;
+}
+
+/* ── Emergency Alert Animation ───────────────────────────────────────────── */
+.emergency-card {
+  animation: emergency-pulse 1.5s ease-in-out infinite;
+}
+
+/* ── Skeleton Shimmer ────────────────────────────────────────────────────── */
+.skeleton {
+  @apply relative overflow-hidden bg-muted;
+}
+
+.skeleton::after {
+  content: "";
+  @apply absolute inset-0;
+  background: linear-gradient(
+    90deg,
+    transparent 25%,
+    hsl(var(--muted-foreground) / 0.1) 50%,
+    transparent 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+/* ── Triage Level Colors ─────────────────────────────────────────────────── */
+.triage-l1 { @apply bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400; }
+.triage-l2 { @apply bg-orange-500/10 text-orange-600 border-orange-500/20 dark:text-orange-400; }
+.triage-l3 { @apply bg-yellow-500/10 text-yellow-700 border-yellow-500/20 dark:text-yellow-400; }
+.triage-l4 { @apply bg-green-500/10 text-green-600 border-green-500/20 dark:text-green-400; }
+.triage-l5 { @apply bg-blue-500/10 text-blue-600 border-blue-500/20 dark:text-blue-400; }
+
+/* ── Glass Card ──────────────────────────────────────────────────────────── */
+.glass-card {
+  @apply border border-white/10 bg-white/5 backdrop-blur-sm dark:border-white/5;
+}
+
+/* ── Gradient Text ───────────────────────────────────────────────────────── */
+.gradient-text {
+  @apply bg-gradient-to-r from-brand-400 to-mint-400 bg-clip-text text-transparent;
+}
