@@ -7,10 +7,11 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agents.session_manager import create_session, process_message
-from app.api.deps import CurrentUser
+from app.api.deps import CurrentUser, OptionalUser
 from app.db.session import get_db
 from app.models.assessment import Assessment, AssessmentStatus, Conversation, TriageReport
 from app.models.patient import Patient
+from app.models.user import User
 from app.schemas.assessment import (
     AssessmentCreate,
     AssessmentOut,
@@ -22,6 +23,34 @@ from app.schemas.assessment import (
 from app.services.audit import write_audit
 
 router = APIRouter(prefix="/triage", tags=["Triage"])
+
+
+def _authorize_assessment_access(
+    assessment: Assessment | None,
+    current_user: User | None,
+    session_token: str | None,
+) -> None:
+    """Authorize read access to an assessment's data (report / assessment /
+    conversation). Access is granted only when the caller either:
+      • presents the assessment's secret session_token (anonymous capability), OR
+      • is an authenticated user in the same organization.
+    Otherwise we raise 404 (not 403) so we never confirm the resource exists to
+    an unauthorized caller — prevents enumeration of patient records by ID.
+    """
+    if assessment is None:
+        raise HTTPException(status_code=404, detail="Not found")
+
+    if session_token and session_token == assessment.session_token:
+        return
+
+    if (
+        current_user is not None
+        and current_user.organization_id is not None
+        and assessment.organization_id == current_user.organization_id
+    ):
+        return
+
+    raise HTTPException(status_code=404, detail="Not found")
 
 
 @router.get("/assessments", response_model=dict)
@@ -232,14 +261,16 @@ async def send_anonymous_message(
 @router.get("/sessions/{session_token}/conversation", response_model=list[ConversationMessageOut])
 async def get_conversation(
     session_token: str,
+    current_user: OptionalUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> list[Conversation]:
     result = await db.execute(
         select(Assessment).where(Assessment.session_token == session_token)
     )
     assessment = result.scalar_one_or_none()
-    if not assessment:
-        raise HTTPException(status_code=404, detail="Session not found")
+    # The path itself carries the secret session_token capability; still run the
+    # shared check so org members are also authorized and missing rows 404.
+    _authorize_assessment_access(assessment, current_user, session_token)
 
     conv_result = await db.execute(
         select(Conversation)
@@ -252,8 +283,15 @@ async def get_conversation(
 @router.get("/reports/{assessment_id}", response_model=TriageReportOut)
 async def get_triage_report(
     assessment_id: uuid.UUID,
+    current_user: OptionalUser,
     db: Annotated[AsyncSession, Depends(get_db)],
+    session_token: str | None = Query(default=None),
 ) -> TriageReport:
+    # Authorize against the parent assessment before returning any PHI.
+    a_result = await db.execute(select(Assessment).where(Assessment.id == assessment_id))
+    assessment = a_result.scalar_one_or_none()
+    _authorize_assessment_access(assessment, current_user, session_token)
+
     result = await db.execute(
         select(TriageReport).where(TriageReport.assessment_id == assessment_id)
     )
@@ -266,10 +304,11 @@ async def get_triage_report(
 @router.get("/sessions/{assessment_id}", response_model=AssessmentOut)
 async def get_assessment(
     assessment_id: uuid.UUID,
+    current_user: OptionalUser,
     db: Annotated[AsyncSession, Depends(get_db)],
+    session_token: str | None = Query(default=None),
 ) -> Assessment:
     result = await db.execute(select(Assessment).where(Assessment.id == assessment_id))
     assessment = result.scalar_one_or_none()
-    if not assessment:
-        raise HTTPException(status_code=404, detail="Assessment not found")
+    _authorize_assessment_access(assessment, current_user, session_token)
     return assessment

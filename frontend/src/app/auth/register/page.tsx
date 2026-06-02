@@ -14,21 +14,23 @@ import { Input } from "@/components/ui/input";
 import { authApi, getErrorMessage, setAuthToken } from "@/lib/api";
 import { Logo } from "@/components/ui/logo";
 
-const schema = z.object({
-  first_name: z.string().min(1, "First name is required"),
-  last_name: z.string().min(1, "Last name is required"),
-  email: z.string().email("Please enter a valid email"),
-  organization_name: z.string().min(2, "Organization name is required"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-  confirm_password: z.string(),
-}).refine((d) => d.password === d.confirm_password, {
-  message: "Passwords don't match",
-  path: ["confirm_password"],
-});
+// Patient self-registration. No organization → the API assigns the PATIENT role.
+const schema = z
+  .object({
+    first_name: z.string().min(1, "First name is required"),
+    last_name: z.string().min(1, "Last name is required"),
+    email: z.string().email("Please enter a valid email"),
+    password: z.string().min(8, "Password must be at least 8 characters"),
+    confirm_password: z.string(),
+  })
+  .refine((d) => d.password === d.confirm_password, {
+    message: "Passwords don't match",
+    path: ["confirm_password"],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
-export default function SignUpPage() {
+export default function PatientRegisterPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
 
@@ -45,14 +47,14 @@ export default function SignUpPage() {
         password: data.password,
         first_name: data.first_name,
         last_name: data.last_name,
-        organization_name: data.organization_name,
+        // no organization_name → registers as a patient
       });
       setAuthToken(tokens.access_token);
       if (typeof window !== "undefined") {
         localStorage.setItem("refresh_token", tokens.refresh_token);
       }
-      toast.success("Account created! Welcome to Neural Hub.");
-      router.push("/dashboard");
+      toast.success("Welcome to Neural Hub!");
+      router.push("/triage/start");
     } catch (err) {
       toast.error(getErrorMessage(err, "Failed to create account"));
     }
@@ -70,16 +72,15 @@ export default function SignUpPage() {
       >
         <div className="mb-8 text-center">
           <Logo className="mx-auto mb-5 h-auto w-[300px] max-w-[85vw] sm:w-[340px]" />
-          <h1 className="text-2xl font-bold tracking-tight">Create Organization Account</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Create your patient account</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Deploy Neural Hub for your clinic or health system
+            Track your symptoms, history, and triage assessments in one place
           </p>
         </div>
 
         <div className="rounded-2xl border border-border bg-card p-8 shadow-xl">
           <div className="mb-6">
-            <h2 className="text-xl font-semibold">Get started</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
               <Link href="/auth/signin" className="text-primary hover:underline">
                 Sign in
@@ -91,14 +92,14 @@ export default function SignUpPage() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="mb-1.5 block text-sm font-medium">First name</label>
-                <Input placeholder="John" {...register("first_name")} />
+                <Input placeholder="Your first name" {...register("first_name")} />
                 {errors.first_name && (
                   <p className="mt-1 text-xs text-destructive">{errors.first_name.message}</p>
                 )}
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium">Last name</label>
-                <Input placeholder="Smith" {...register("last_name")} />
+                <Input placeholder="Your last name" {...register("last_name")} />
                 {errors.last_name && (
                   <p className="mt-1 text-xs text-destructive">{errors.last_name.message}</p>
                 )}
@@ -106,16 +107,8 @@ export default function SignUpPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium">Organization name</label>
-              <Input placeholder="City Medical Clinic" {...register("organization_name")} />
-              {errors.organization_name && (
-                <p className="mt-1 text-xs text-destructive">{errors.organization_name.message}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Work email</label>
-              <Input type="email" placeholder="you@clinic.com" {...register("email")} />
+              <label className="mb-1.5 block text-sm font-medium">Email address</label>
+              <Input type="email" placeholder="you@email.com" autoComplete="email" {...register("email")} />
               {errors.email && (
                 <p className="mt-1 text-xs text-destructive">{errors.email.message}</p>
               )}
@@ -127,6 +120,7 @@ export default function SignUpPage() {
                 <Input
                   type={showPassword ? "text" : "password"}
                   placeholder="Min 8 characters"
+                  autoComplete="new-password"
                   {...register("password")}
                 />
                 <button
@@ -144,41 +138,30 @@ export default function SignUpPage() {
 
             <div>
               <label className="mb-1.5 block text-sm font-medium">Confirm password</label>
-              <Input
-                type="password"
-                placeholder="••••••••"
-                {...register("confirm_password")}
-              />
+              <Input type="password" placeholder="••••••••" {...register("confirm_password")} />
               {errors.confirm_password && (
                 <p className="mt-1 text-xs text-destructive">{errors.confirm_password.message}</p>
               )}
             </div>
 
-            <Button
-              type="submit"
-              className="w-full"
-              variant="brand"
-              size="lg"
-              loading={isSubmitting}
-            >
+            <Button type="submit" className="w-full" variant="brand" size="lg" loading={isSubmitting}>
               Create account
             </Button>
           </form>
 
           <div className="mt-6 rounded-lg border border-border bg-muted/50 p-3">
             <p className="text-center text-[11px] text-muted-foreground">
-              Are you a patient?{" "}
-              <Link href="/auth/register" className="text-primary hover:underline">
-                Create a personal patient account
+              Are you a clinic or health system?{" "}
+              <Link href="/auth/signup" className="text-primary hover:underline">
+                Create an organization account
               </Link>
             </p>
           </div>
-
-          <p className="mt-4 text-center text-[11px] text-muted-foreground">
-            By creating an account, you agree that this platform is for{" "}
-            <strong>authorized healthcare use only</strong> and does not provide medical diagnoses.
-          </p>
         </div>
+
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          This platform does not provide medical diagnoses. In an emergency, call 911.
+        </p>
       </motion.div>
     </div>
   );

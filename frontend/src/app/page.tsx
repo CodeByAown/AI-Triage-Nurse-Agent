@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
@@ -11,13 +12,15 @@ import {
   Clock,
   Lock,
   Shield,
-  Stethoscope,
   TrendingUp,
   Users,
-  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Logo, LogoMark } from "@/components/ui/logo";
+import { authApi, loadStoredToken } from "@/lib/api";
+import { cn } from "@/lib/utils";
+import type { User } from "@/types";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 24 },
@@ -34,7 +37,7 @@ const FEATURES = [
     icon: Brain,
     title: "Adaptive AI Questioning",
     description:
-      "Claude-powered conversations that adapt based on symptoms, age, sex, history, and risk factors — just like speaking to a real nurse.",
+      "Adaptive AI conversations that respond to symptoms, age, sex, history, and risk factors — just like speaking to a real nurse.",
     color: "text-brand-500",
     bg: "bg-brand-500/10",
   },
@@ -96,35 +99,68 @@ const STATS = [
 ];
 
 export default function LandingPage() {
+  // Reflect the real auth state in the nav so a signed-in user never sees
+  // "Sign in" on the homepage.
+  const [user, setUser] = useState<User | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    loadStoredToken();
+    authApi
+      .me()
+      .then(setUser)
+      .catch(() => setUser(null));
+  }, []);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm">
-              <Stethoscope className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-sm font-bold tracking-tight">Neural Hub</span>
-            <Badge variant="outline" className="hidden text-[10px] sm:flex">
-              AI Triage Nurse
-            </Badge>
-          </div>
-          <nav className="hidden items-center gap-6 text-sm text-muted-foreground md:flex">
+      <header
+        className={cn(
+          "sticky top-0 z-50 border-b backdrop-blur-md transition-all duration-200",
+          scrolled
+            ? "border-border/70 bg-background/90 shadow-sm"
+            : "border-transparent bg-background/70"
+        )}
+      >
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Neural Hub home">
+            <LogoMark className="h-9 w-9 sm:hidden" />
+            <Logo className="hidden h-7 w-auto sm:block" />
+          </Link>
+          <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#how-it-works" className="transition-colors hover:text-foreground">How It Works</a>
             <a href="#triage" className="transition-colors hover:text-foreground">Triage Levels</a>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/auth/signin">Sign in</Link>
-            </Button>
-            <Button size="sm" variant="brand" asChild>
-              <Link href="/triage/start">
-                Start Triage
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </Button>
+          <div className="flex shrink-0 items-center gap-2">
+            {user ? (
+              <Button size="sm" variant="brand" asChild>
+                <Link href="/dashboard">
+                  Go to Dashboard
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link href="/auth/signin">Sign in</Link>
+                </Button>
+                <Button size="sm" variant="brand" asChild>
+                  <Link href="/triage/start">
+                    Start Triage
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -133,7 +169,8 @@ export default function LandingPage() {
       <section className="relative overflow-hidden">
         {/* Background grid */}
         <div className="absolute inset-0 bg-grid-pattern opacity-100" />
-        <div className="absolute inset-0 bg-gradient-to-b from-brand-950/80 via-background/60 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-b from-sage-100/70 via-background/40 to-background" />
+        <div className="absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full bg-terracotta-500/10 blur-3xl" />
 
         <div className="relative mx-auto max-w-7xl px-6 pt-24 pb-32 text-center">
           <motion.div
@@ -142,13 +179,6 @@ export default function LandingPage() {
             animate="show"
             className="mx-auto max-w-4xl"
           >
-            <motion.div variants={fadeUp}>
-              <Badge className="mb-6 gap-1.5 border-brand-500/30 bg-brand-500/10 text-brand-400">
-                <Zap className="h-3 w-3" />
-                Powered by Claude AI + LangGraph
-              </Badge>
-            </motion.div>
-
             <motion.h1
               variants={fadeUp}
               className="mb-6 text-5xl font-bold leading-tight tracking-tight text-foreground sm:text-6xl lg:text-7xl"
@@ -217,7 +247,7 @@ export default function LandingPage() {
             <Badge className="mb-4" variant="secondary">5-Level Clinical Triage</Badge>
             <h2 className="text-3xl font-bold tracking-tight">Every Patient Gets the Right Care</h2>
             <p className="mt-3 text-muted-foreground">
-              AI-assessed urgency levels based on WHO and ACEP triage protocols
+              Clear urgency levels that route every patient to the right level of care
             </p>
           </div>
 
@@ -326,7 +356,7 @@ export default function LandingPage() {
             viewport={{ once: true }}
             className="rounded-2xl border border-brand-500/30 bg-gradient-to-b from-brand-500/10 to-brand-500/5 p-12"
           >
-            <Stethoscope className="mx-auto mb-4 h-10 w-10 text-brand-400" />
+            <LogoMark className="mx-auto mb-4 h-12 w-12 rounded-2xl" />
             <h2 className="mb-4 text-3xl font-bold">Ready to Deploy Neural Hub?</h2>
             <p className="mb-8 text-muted-foreground">
               Set up your organization, configure your AI triage agent, and start
@@ -352,8 +382,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-7xl px-6">
           <div className="flex flex-col items-center justify-between gap-4 text-sm text-muted-foreground md:flex-row">
             <div className="flex items-center gap-2">
-              <Stethoscope className="h-4 w-4" />
-              <span className="font-semibold">Neural Hub</span>
+              <LogoMark className="h-6 w-6 rounded-md" />
+              <span className="font-semibold text-foreground">Neural Hub</span>
               <span>— AI Triage Nurse</span>
             </div>
             <p className="text-center text-xs">

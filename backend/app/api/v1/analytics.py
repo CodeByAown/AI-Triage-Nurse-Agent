@@ -22,45 +22,38 @@ async def get_dashboard_stats(
     org_id = current_user.organization_id
     since = datetime.now(timezone.utc) - timedelta(days=days)
 
-    base = select(Assessment).where(
+    org_filter = (
         Assessment.organization_id == org_id,
         Assessment.created_at >= since,
     )
 
-    # Total assessments
-    total_result = await db.execute(select(func.count()).select_from(base.subquery()))
-    total = total_result.scalar_one()
-
-    # By status
-    completed_result = await db.execute(
-        select(func.count()).select_from(
-            base.where(Assessment.status == AssessmentStatus.COMPLETED).subquery()
+    # Single round-trip: all top-line counts via conditional aggregation
+    # (count(*) FILTER (WHERE ...)) instead of 5 separate COUNT queries — a large
+    # latency win against a remote Postgres where each round-trip is ~1s.
+    counts_row = (
+        await db.execute(
+            select(
+                func.count().label("total"),
+                func.count()
+                .filter(Assessment.status == AssessmentStatus.COMPLETED)
+                .label("completed"),
+                func.count()
+                .filter(Assessment.status == AssessmentStatus.ESCALATED)
+                .label("escalated"),
+                func.count()
+                .filter(Assessment.triage_level == TriageLevel.L1_EMERGENCY)
+                .label("emergency"),
+                func.count()
+                .filter(Assessment.triage_level == TriageLevel.L2_URGENT)
+                .label("urgent"),
+            ).where(*org_filter)
         )
-    )
-    completed = completed_result.scalar_one()
-
-    escalated_result = await db.execute(
-        select(func.count()).select_from(
-            base.where(Assessment.status == AssessmentStatus.ESCALATED).subquery()
-        )
-    )
-    escalated = escalated_result.scalar_one()
-
-    # Emergency cases
-    emergency_result = await db.execute(
-        select(func.count()).select_from(
-            base.where(Assessment.triage_level == TriageLevel.L1_EMERGENCY).subquery()
-        )
-    )
-    emergency = emergency_result.scalar_one()
-
-    # Urgent cases
-    urgent_result = await db.execute(
-        select(func.count()).select_from(
-            base.where(Assessment.triage_level == TriageLevel.L2_URGENT).subquery()
-        )
-    )
-    urgent = urgent_result.scalar_one()
+    ).one()
+    total = counts_row.total
+    completed = counts_row.completed
+    escalated = counts_row.escalated
+    emergency = counts_row.emergency
+    urgent = counts_row.urgent
 
     # Triage level distribution
     level_dist_result = await db.execute(

@@ -15,26 +15,53 @@ const config: Config = {
         mono: ["var(--font-jetbrains-mono)", ...fontFamily.mono],
       },
       colors: {
-        // Neural Hub brand palette
+        // Neural Hub brand palette — forest green (the "NEURAL" wordmark)
         brand: {
-          50: "#eff6ff",
-          100: "#dbeafe",
-          200: "#bfdbfe",
-          300: "#93c5fd",
-          400: "#60a5fa",
-          500: "#3b82f6",
-          600: "#2563eb",
-          700: "#1d4ed8",
-          800: "#1e40af",
-          900: "#1e3a8a",
-          950: "#0a0e27",
+          50: "#f3f6f3",
+          100: "#e3eae4",
+          200: "#c6d5c8",
+          300: "#9fb6a3",
+          400: "#6f8f76",
+          500: "#4d7257",
+          600: "#3b5a44",
+          700: "#2f4838",
+          800: "#27392f", // logo green
+          900: "#1f2e26",
+          950: "#16201b",
         },
+        // Terracotta — the signature accent dot in the logo
+        terracotta: {
+          50: "#faf1ed",
+          100: "#f4ddd3",
+          200: "#e8bba8",
+          300: "#db9478",
+          400: "#cd7a59",
+          500: "#c16a4f", // logo dot
+          600: "#a8543b",
+          700: "#884330",
+          800: "#6e372a",
+          900: "#5b3025",
+        },
+        // Sage — the muted green of the "HUB" wordmark
+        sage: {
+          50: "#f4f6f2",
+          100: "#e6eae1",
+          200: "#ccd4c4",
+          300: "#aab69f",
+          400: "#8b9a86", // logo HUB
+          500: "#708064",
+          600: "#58664e",
+          700: "#46513f",
+          800: "#3a4335",
+          900: "#313a2e",
+        },
+        // Kept for backward-compat with any existing mint-* references
         mint: {
-          50: "#f0fdf4",
-          100: "#dcfce7",
-          400: "#4ade80",
-          500: "#22c55e",
-          600: "#16a34a",
+          50: "#f3f6f3",
+          100: "#e3eae4",
+          400: "#6f8f76",
+          500: "#4d7257",
+          600: "#3b5a44",
         },
         warning: {
           400: "#fb923c",
@@ -123,7 +150,7 @@ const config: Config = {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
         "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
         "grid-pattern":
-          "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
+          "url(\"data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2327392f' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E\")",
       },
     },
   },

@@ -22,7 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { patientsApi, triageApi } from "@/lib/api";
+import { getErrorMessage, patientsApi, triageApi } from "@/lib/api";
 import {
   cn,
   formatDate,
@@ -59,10 +59,10 @@ export default function PatientDetailPage() {
       .then(([p, a]) => {
         setPatient(p);
         // Filter assessments for this patient
-        setAssessments(a.items.filter((x) => x.patient_id === patientId));
+        setAssessments((a.items ?? []).filter((x) => x.patient_id === patientId));
       })
-      .catch(() => {
-        toast.error("Failed to load patient");
+      .catch((err) => {
+        toast.error(getErrorMessage(err, "Failed to load patient"));
         router.push("/patients");
       })
       .finally(() => setLoading(false));
@@ -74,8 +74,8 @@ export default function PatientDetailPage() {
     try {
       const assessment = await triageApi.startSession(patient.id);
       router.push(`/triage/${assessment.session_token}?assessment=${assessment.id}`);
-    } catch {
-      toast.error("Failed to start triage session");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to start triage session"));
       setStartingTriage(false);
     }
   };
@@ -98,6 +98,10 @@ export default function PatientDetailPage() {
     (a) => a.status === "completed" || a.status === "escalated"
   );
   const hasEmergency = assessments.some((a) => a.triage_level === "L1_EMERGENCY");
+  // Null-safe views — a patient record may have these JSONB lists unset.
+  const chronicConditions = (patient.chronic_conditions as string[] | null) ?? [];
+  const medications = (patient.current_medications as Array<{ name?: string; dosage?: string } | string> | null) ?? [];
+  const allergies = (patient.allergies as string[] | null) ?? [];
 
   return (
     <AppLayout>
@@ -180,9 +184,9 @@ export default function PatientDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {(patient.chronic_conditions as string[]).length > 0 ? (
+                  {chronicConditions.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {(patient.chronic_conditions as string[]).map((c) => (
+                      {chronicConditions.map((c) => (
                         <Badge key={c} variant="secondary" className="text-xs">
                           {c}
                         </Badge>
@@ -205,9 +209,9 @@ export default function PatientDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {(patient.current_medications as Array<{ name?: string; dosage?: string } | string>).length > 0 ? (
+                  {medications.length > 0 ? (
                     <ul className="space-y-1">
-                      {(patient.current_medications as Array<{ name?: string; dosage?: string } | string>).map((med, i) => (
+                      {medications.map((med, i) => (
                         <li key={i} className="text-sm text-muted-foreground">
                           {typeof med === "string" ? med : `${med.name}${med.dosage ? ` — ${med.dosage}` : ""}`}
                         </li>
@@ -230,9 +234,9 @@ export default function PatientDetailPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {patient.allergies.length > 0 ? (
+                  {allergies.length > 0 ? (
                     <div className="flex flex-wrap gap-1.5">
-                      {patient.allergies.map((a) => (
+                      {allergies.map((a) => (
                         <Badge key={a as string} className="border-orange-500/30 bg-orange-500/10 text-orange-600 dark:text-orange-400 text-xs">
                           {a as string}
                         </Badge>

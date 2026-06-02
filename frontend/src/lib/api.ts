@@ -96,6 +96,46 @@ api.interceptors.response.use(
   }
 );
 
+// ── Friendly error messages ─────────────────────────────────────────────────
+// Single place that turns ANY thrown error (axios/network/timeout/unknown) into
+// a calm, user-safe sentence. Never leaks stack traces, URLs, or server internals.
+export function getErrorMessage(err: unknown, fallback = "Something went wrong. Please try again."): string {
+  if (axios.isAxiosError(err)) {
+    // No response → the request never reached the server.
+    if (!err.response) {
+      if (err.code === "ECONNABORTED") return "The request timed out. Please check your connection and try again.";
+      return "We couldn't reach the server. Please check your connection and try again.";
+    }
+
+    const status = err.response.status;
+    const detail = (err.response.data as { detail?: unknown } | undefined)?.detail;
+
+    // FastAPI sometimes returns `detail` as a validation-error array — flatten it.
+    if (Array.isArray(detail)) {
+      const first = detail[0] as { msg?: string } | undefined;
+      if (first?.msg) return first.msg;
+    } else if (typeof detail === "string" && detail.trim()) {
+      return detail;
+    }
+
+    // Status-based fallbacks so the user always sees something sensible.
+    switch (status) {
+      case 400: return "That request couldn't be processed. Please review your input.";
+      case 401: return "Your session has expired or your credentials are invalid. Please sign in again.";
+      case 403: return "You don't have permission to do that.";
+      case 404: return "We couldn't find what you were looking for.";
+      case 409: return "That item already exists.";
+      case 422: return "Some of the information provided is invalid. Please review and try again.";
+      case 429: return "Too many requests. Please wait a moment and try again.";
+      default:
+        if (status >= 500) return "The server ran into a problem. Our team has been notified — please try again shortly.";
+        return fallback;
+    }
+  }
+  if (err instanceof Error && err.message) return fallback;
+  return fallback;
+}
+
 // ── Auth ──────────────────────────────────────────────────────────────────
 export const authApi = {
   login: async (email: string, password: string): Promise<TokenResponse> => {
@@ -221,8 +261,12 @@ export const triageApi = {
     return data;
   },
 
-  getReport: async (assessment_id: string): Promise<TriageReport> => {
-    const { data } = await api.get<TriageReport>(`/triage/reports/${assessment_id}`);
+  getReport: async (assessment_id: string, session_token?: string): Promise<TriageReport> => {
+    // session_token authorizes anonymous access to its own report; authenticated
+    // clinic users are authorized via their JWT + organization scope instead.
+    const { data } = await api.get<TriageReport>(`/triage/reports/${assessment_id}`, {
+      params: session_token ? { session_token } : undefined,
+    });
     return data;
   },
 

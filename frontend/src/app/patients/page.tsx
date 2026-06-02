@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { patientsApi, triageApi } from "@/lib/api";
+import { getErrorMessage, patientsApi, triageApi } from "@/lib/api";
 import { cn, formatRelative, initials } from "@/lib/utils";
 import type { Patient } from "@/types";
 
@@ -47,11 +47,12 @@ export default function PatientsPage() {
         size: 20,
         search: search || undefined,
       });
-      setPatients(data.items);
+      setPatients(data.items ?? []);
       setTotalPages(data.pages);
       setTotal(data.total);
-    } catch {
-      // silently fail
+    } catch (err) {
+      setPatients([]);
+      toast.error(getErrorMessage(err, "Failed to load patients"));
     } finally {
       setLoading(false);
     }
@@ -88,8 +89,8 @@ export default function PatientsPage() {
     try {
       const assessment = await triageApi.startSession(patientId);
       window.location.href = `/triage/${assessment.session_token}?assessment=${assessment.id}`;
-    } catch {
-      toast.error("Failed to start triage session");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to start triage session"));
     }
   };
 
@@ -214,12 +215,12 @@ export default function PatientsPage() {
                             {patient.phone && <span>· {patient.phone}</span>}
                           </div>
                           <div className="mt-1 flex flex-wrap gap-1">
-                            {(patient.chronic_conditions as string[]).slice(0, 3).map((c) => (
+                            {((patient.chronic_conditions as string[] | null) ?? []).slice(0, 3).map((c) => (
                               <Badge key={c} variant="secondary" className="text-[10px]">
                                 {c}
                               </Badge>
                             ))}
-                            {patient.allergies.length > 0 && (
+                            {(patient.allergies?.length ?? 0) > 0 && (
                               <Badge variant="outline" className="text-[10px] text-orange-600 border-orange-500/30">
                                 {patient.allergies.length} allerg{patient.allergies.length > 1 ? "ies" : "y"}
                               </Badge>

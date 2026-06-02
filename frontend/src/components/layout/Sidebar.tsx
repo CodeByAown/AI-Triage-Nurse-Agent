@@ -13,11 +13,11 @@ import {
   LogOut,
   Settings,
   Shield,
-  Stethoscope,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/ui/logo";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { initials } from "@/lib/utils";
 import { authApi } from "@/lib/api";
@@ -58,17 +58,17 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
   return (
     <div className="flex h-full w-64 flex-col border-r border-border bg-card">
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 border-b border-border px-6">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-500 to-brand-700 shadow-sm">
-          <Stethoscope className="h-4 w-4 text-white" />
-        </div>
+      <Link href="/dashboard" className="flex h-16 items-center gap-3 border-b border-border px-6 transition-colors hover:bg-accent/40">
+        <LogoMark className="h-8 w-8" />
         <div>
-          <p className="text-sm font-bold tracking-tight">Neural Hub</p>
+          <p className="text-sm font-bold tracking-tight text-foreground">
+            Neural <span className="text-sage-500">Hub</span>
+          </p>
           <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
             Triage Nurse
           </p>
         </div>
-      </div>
+      </Link>
 
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-4">

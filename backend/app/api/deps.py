@@ -11,6 +11,10 @@ from app.db.session import get_db
 from app.models.user import User, UserRole
 
 security = HTTPBearer()
+# auto_error=False → returns None instead of raising when no/invalid Authorization
+# header is present. Used by endpoints that allow either an authenticated user OR
+# an anonymous capability (e.g. a secret session token).
+optional_security = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -40,6 +44,35 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+async def get_optional_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(optional_security)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> User | None:
+    """Like get_current_user, but returns None instead of raising when the caller
+    is unauthenticated or presents an invalid/expired token. Never raises on a
+    malformed token so anonymous capability flows can fall through cleanly."""
+    if credentials is None:
+        return None
+
+    payload = decode_token(credentials.credentials)
+    if not payload or payload.get("type") != "access":
+        return None
+
+    user_id = payload.get("sub")
+    try:
+        result = await db.execute(select(User).where(User.id == UUID(user_id)))
+    except (ValueError, TypeError):
+        return None
+
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        return None
+    return user
+
+
+OptionalUser = Annotated[User | None, Depends(get_optional_user)]
 
 
 def require_role(*roles: UserRole):

@@ -10,13 +10,15 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
-import { authApi, loadStoredToken } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { authApi, getErrorMessage, loadStoredToken } from "@/lib/api";
 import type { User as UserType } from "@/types";
 
 type ProfileForm = { first_name: string; last_name: string; phone: string };
 type PasswordForm = { current_password: string; new_password: string; confirm_password: string };
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [user, setUser] = useState<UserType | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
@@ -38,11 +40,14 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadStoredToken();
-    authApi.me().then((u) => {
-      setUser(u);
-      reset({ first_name: u.first_name, last_name: u.last_name, phone: u.phone || "" });
-    });
-  }, [reset]);
+    authApi
+      .me()
+      .then((u) => {
+        setUser(u);
+        reset({ first_name: u.first_name, last_name: u.last_name, phone: u.phone || "" });
+      })
+      .catch(() => router.replace("/auth/signin"));
+  }, [reset, router]);
 
   const onSaveProfile = async (data: ProfileForm) => {
     setSavingProfile(true);
@@ -55,8 +60,8 @@ export default function SettingsPage() {
       setUser(updated);
       reset({ first_name: updated.first_name, last_name: updated.last_name, phone: updated.phone || "" });
       toast.success("Profile updated successfully");
-    } catch {
-      toast.error("Failed to update profile");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to update profile"));
     } finally {
       setSavingProfile(false);
     }
@@ -72,9 +77,8 @@ export default function SettingsPage() {
       await authApi.changePassword(data.current_password, data.new_password);
       toast.success("Password changed successfully");
       pwReset();
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      toast.error(msg || "Failed to change password");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Failed to change password"));
     } finally {
       setSavingPassword(false);
     }

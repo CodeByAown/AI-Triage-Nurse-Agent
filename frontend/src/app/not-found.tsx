@@ -1,14 +1,12 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Stethoscope } from "lucide-react";
+import { LogoMark } from "@/components/ui/logo";
 
 export default function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background">
       <div className="text-center">
-        <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg">
-          <Stethoscope className="h-8 w-8 text-white" />
-        </div>
+        <LogoMark className="mx-auto mb-6 h-16 w-16 rounded-2xl" />
         <p className="mb-2 font-mono text-6xl font-bold tracking-tight text-muted-foreground/30">
           404
         </p>

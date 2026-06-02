@@ -6,67 +6,85 @@
 
 /* ── Design Tokens ─────────────────────────────────────────────────────────── */
 @layer base {
+  /* ── Neural Hub brand palette ───────────────────────────────────────────────
+     Derived from the wordmark: deep forest green (#27392F), terracotta accent
+     (#C16A4F), sage (#8B9A86) on a warm paper-white ground. Light, earthy,
+     premium-clinical. Emergency reds are kept vivid for clinical clarity.      */
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222 47% 11%;
+    --background: 48 30% 98%;          /* warm paper white  */
+    --foreground: 152 22% 16%;         /* deep forest ink   */
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 152 22% 16%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 210 40% 96%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 210 40% 96%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 84% 60%;
+    --popover-foreground: 152 22% 16%;
+    --primary: 152 22% 24%;            /* forest green      */
+    --primary-foreground: 48 30% 98%;
+    --secondary: 96 14% 92%;           /* soft sage tint    */
+    --secondary-foreground: 152 22% 22%;
+    --muted: 45 18% 94%;               /* warm muted        */
+    --muted-foreground: 150 9% 42%;
+    --accent: 14 45% 93%;              /* light terracotta wash */
+    --accent-foreground: 14 45% 32%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 221 83% 53%;
-    --radius: 0.625rem;
-    --chart-1: 221 83% 53%;
-    --chart-2: 142 76% 36%;
-    --chart-3: 24 95% 53%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 272 91% 65%;
+    --border: 96 12% 87%;              /* warm sage border  */
+    --input: 96 12% 87%;
+    --ring: 152 28% 30%;
+    --radius: 0.75rem;
+    --chart-1: 152 22% 30%;            /* forest */
+    --chart-2: 14 50% 53%;             /* terracotta */
+    --chart-3: 100 14% 52%;            /* sage */
+    --chart-4: 0 72% 55%;              /* red */
+    --chart-5: 40 55% 52%;             /* warm gold */
     --font-inter: "Inter", sans-serif;
     --font-jetbrains-mono: "JetBrains Mono", monospace;
   }
 
+  /* Earthy dark variant (kept for completeness; app currently renders light). */
   .dark {
-    --background: 222 47% 6%;
-    --foreground: 213 31% 91%;
-    --card: 222 47% 8%;
-    --card-foreground: 213 31% 91%;
-    --popover: 222 47% 8%;
-    --popover-foreground: 213 31% 91%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 6%;
-    --secondary: 222 47% 12%;
-    --secondary-foreground: 213 31% 91%;
-    --muted: 222 47% 12%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 222 47% 12%;
-    --accent-foreground: 213 31% 91%;
-    --destructive: 0 84% 60%;
+    --background: 156 18% 7%;
+    --foreground: 48 22% 92%;
+    --card: 156 16% 10%;
+    --card-foreground: 48 22% 92%;
+    --popover: 156 16% 10%;
+    --popover-foreground: 48 22% 92%;
+    --primary: 96 18% 62%;             /* sage glows on dark */
+    --primary-foreground: 156 18% 9%;
+    --secondary: 156 12% 16%;
+    --secondary-foreground: 48 22% 92%;
+    --muted: 156 12% 16%;
+    --muted-foreground: 96 8% 60%;
+    --accent: 14 40% 22%;
+    --accent-foreground: 14 55% 80%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 222 47% 16%;
-    --input: 222 47% 14%;
-    --ring: 217 91% 60%;
-    --chart-1: 217 91% 60%;
-    --chart-2: 142 76% 46%;
-    --chart-3: 24 95% 53%;
-    --chart-4: 0 84% 60%;
-    --chart-5: 272 91% 65%;
+    --border: 156 12% 20%;
+    --input: 156 12% 18%;
+    --ring: 96 18% 55%;
+    --chart-1: 96 18% 62%;
+    --chart-2: 14 55% 60%;
+    --chart-3: 100 16% 58%;
+    --chart-4: 0 72% 60%;
+    --chart-5: 40 55% 58%;
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    /* offset anchored sections so they aren't hidden under the sticky header */
+    scroll-padding-top: 5rem;
+  }
+
+  /* Respect users who prefer reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
@@ -159,5 +177,5 @@
 
 /* ── Gradient Text ───────────────────────────────────────────────────────── */
 .gradient-text {
-  @apply bg-gradient-to-r from-brand-400 to-mint-400 bg-clip-text text-transparent;
+  @apply bg-gradient-to-r from-brand-700 via-brand-500 to-terracotta-500 bg-clip-text text-transparent;
 }

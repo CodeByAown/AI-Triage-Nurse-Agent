@@ -9,7 +9,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { triageApi } from "@/lib/api";
+import { toast } from "sonner";
+import { getErrorMessage, triageApi } from "@/lib/api";
 import {
   cn,
   formatRelative,
@@ -53,11 +54,12 @@ export default function HistoryPage() {
       if (statusFilter !== "all") params.status = statusFilter;
 
       const data = await triageApi.listAssessments(params as { page: number; size: number; status?: string });
-      setAssessments(data.items);
+      setAssessments(data.items ?? []);
       setTotalPages(data.pages);
       setTotal(data.total);
-    } catch {
-      // silently fail — user sees empty state
+    } catch (err) {
+      setAssessments([]);
+      toast.error(getErrorMessage(err, "Failed to load assessment history"));
     } finally {
       setLoading(false);
     }

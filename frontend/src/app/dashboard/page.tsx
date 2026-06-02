@@ -27,7 +27,8 @@ import {
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { analyticsApi } from "@/lib/api";
+import { toast } from "sonner";
+import { analyticsApi, getErrorMessage } from "@/lib/api";
 import { cn, formatDuration, formatDate } from "@/lib/utils";
 import type { DashboardStats } from "@/types";
 
@@ -90,7 +91,7 @@ export default function DashboardPage() {
     analyticsApi
       .getDashboard(days)
       .then(setStats)
-      .catch(() => {})
+      .catch((err) => toast.error(getErrorMessage(err, "Couldn't load dashboard analytics")))
       .finally(() => setLoading(false));
   }, [days]);
 
@@ -225,8 +226,8 @@ export default function DashboardPage() {
                     <AreaChart data={stats?.daily_trend ?? []}>
                       <defs>
                         <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                          <stop offset="5%" stopColor="#3b5a44" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b5a44" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <XAxis
@@ -250,7 +251,7 @@ export default function DashboardPage() {
                       <Area
                         type="monotone"
                         dataKey="count"
-                        stroke="#3b82f6"
+                        stroke="#3b5a44"
                         strokeWidth={2}
                         fill="url(#gradient)"
                       />

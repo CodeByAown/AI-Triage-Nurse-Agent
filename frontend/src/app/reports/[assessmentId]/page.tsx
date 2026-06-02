@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -65,7 +65,11 @@ function RiskGauge({ score, label }: { score: number; label: string }) {
 export default function ReportPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const assessmentId = params.assessmentId as string;
+  // Present for anonymous viewers (passed from the triage chat). Authenticated
+  // clinic users won't have it and are authorized via their session instead.
+  const sessionToken = searchParams.get("token") ?? undefined;
 
   const [report, setReport] = useState<TriageReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -78,7 +82,7 @@ export default function ReportPage() {
 
   const fetchReport = async () => {
     try {
-      const data = await triageApi.getReport(assessmentId);
+      const data = await triageApi.getReport(assessmentId, sessionToken);
       setReport(data);
       setLoading(false);
     } catch {
@@ -124,6 +128,10 @@ export default function ReportPage() {
   const levelConfig = TRIAGE_LEVEL_CONFIG[report.urgency_level as TriageLevel];
   const isEmergency = report.urgency_level === "L1_EMERGENCY";
   const isUrgent = report.urgency_level === "L2_URGENT";
+  // Null-safe views of optional/array fields so a sparse report can never crash render.
+  const clinicalConcerns = report.clinical_concerns ?? [];
+  const confidenceBreakdown = report.confidence_breakdown ?? {};
+  const urgencyLevelLabel = (report.urgency_level ?? "").replace("_", " ");
 
   return (
     <div className="min-h-screen bg-background">
@@ -296,7 +304,7 @@ export default function ReportPage() {
             </motion.div>
 
             {/* Clinical Concerns */}
-            {report.clinical_concerns.length > 0 && (
+            {clinicalConcerns.length > 0 && (
               <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <Card>
                   <CardHeader className="pb-3">
@@ -307,7 +315,7 @@ export default function ReportPage() {
                   </CardHeader>
                   <CardContent>
                     <ul className="space-y-2">
-                      {report.clinical_concerns.map((concern, i) => (
+                      {clinicalConcerns.map((concern, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
                           <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                           {concern}
@@ -370,7 +378,7 @@ export default function ReportPage() {
                 <CardContent className="space-y-3">
                   <div className={cn("rounded-lg border p-3 text-center", levelConfig?.bgColor, levelConfig?.borderColor)}>
                     <p className={cn("text-2xl font-bold", levelConfig?.color)}>
-                      {report.urgency_level.replace("_", " ")}
+                      {urgencyLevelLabel}
                     </p>
                     <p className={cn("text-sm", levelConfig?.color, "opacity-80")}>
                       {levelConfig?.action}
@@ -382,7 +390,7 @@ export default function ReportPage() {
             </motion.div>
 
             {/* Confidence breakdown */}
-            {Object.keys(report.confidence_breakdown).length > 0 && (
+            {Object.keys(confidenceBreakdown).length > 0 && (
               <motion.div initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.3 }}>
                 <Card>
                   <CardHeader className="pb-3">

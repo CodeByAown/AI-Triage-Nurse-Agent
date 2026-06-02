@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ClipboardList, Shield, UserCheck, Users } from "lucide-react";
 import { toast } from "sonner";
@@ -9,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { adminApi } from "@/lib/api";
+import { adminApi, authApi, getErrorMessage } from "@/lib/api";
 import { cn, formatRelative, initials } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { User, UserRole } from "@/types";
@@ -23,6 +24,8 @@ const ROLE_COLORS: Record<UserRole, string> = {
 };
 
 export default function AdminPage() {
+  const router = useRouter();
+  const [authorized, setAuthorized] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<any>(null);
@@ -30,24 +33,46 @@ export default function AdminPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
+  // Gate the page on an admin role before rendering anything sensitive.
+  // The backend still enforces this; this just avoids a broken/empty panel
+  // for users who shouldn't be here.
   useEffect(() => {
-    adminApi.getOverview().then(setOverview).catch(() => {});
-  }, []);
+    authApi
+      .me()
+      .then((me) => {
+        if (me.role === "admin" || me.role === "super_admin") {
+          setAuthorized(true);
+        } else {
+          toast.error("You don't have permission to access the admin panel.");
+          router.replace("/dashboard");
+        }
+      })
+      .catch(() => router.replace("/auth/signin"));
+  }, [router]);
 
   useEffect(() => {
+    if (!authorized) return;
+    adminApi.getOverview().then(setOverview).catch(() => {});
+  }, [authorized]);
+
+  useEffect(() => {
+    if (!authorized) return;
     setLoading(true);
     const timer = setTimeout(() => {
       adminApi
         .listUsers({ page, size: 20, search: search || undefined })
         .then((data) => {
-          setUsers(data.items);
+          setUsers(data.items ?? []);
           setTotalPages(data.pages || 1);
         })
-        .catch(() => toast.error("Failed to load users"))
+        .catch((err) => {
+          setUsers([]);
+          toast.error(getErrorMessage(err, "Failed to load users"));
+        })
         .finally(() => setLoading(false));
     }, 300);
     return () => clearTimeout(timer);
-  }, [page, search]);
+  }, [authorized, page, search]);
 
   const updateRole = async (userId: string, role: string) => {
     try {
@@ -73,6 +98,18 @@ export default function AdminPage() {
       toast.error("Failed to deactivate user");
     }
   };
+
+  if (!authorized) {
+    return (
+      <AppLayout>
+        <div className="space-y-2 p-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="skeleton h-14 rounded-lg" />
+          ))}
+        </div>
+      </AppLayout>
+    );
+  }
 
   return (
     <AppLayout>

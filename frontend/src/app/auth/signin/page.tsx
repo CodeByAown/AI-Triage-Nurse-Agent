@@ -4,14 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Eye, EyeOff, Stethoscope } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authApi, setAuthToken } from "@/lib/api";
+import { authApi, getErrorMessage, setAuthToken } from "@/lib/api";
+import { Logo } from "@/components/ui/logo";
 
 const schema = z.object({
   email: z.string().email("Please enter a valid email"),
@@ -38,17 +39,19 @@ export default function SignInPage() {
         localStorage.setItem("refresh_token", tokens.refresh_token);
       }
       toast.success("Welcome back!");
-      router.push("/dashboard");
-    } catch (err: any) {
-      const message = err.response?.data?.detail || "Invalid email or password";
-      toast.error(message);
+      // Route by role: patients go to their triage flow; clinic staff/admins to
+      // the operational dashboard.
+      const me = await authApi.me().catch(() => null);
+      router.push(me?.role === "patient" ? "/triage/start" : "/dashboard");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "Invalid email or password"));
     }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <div className="absolute inset-0 bg-grid-pattern opacity-50" />
-      <div className="absolute inset-0 bg-gradient-to-b from-brand-950/60 via-background/40 to-background" />
+      <div className="absolute inset-0 bg-grid-pattern opacity-60" />
+      <div className="absolute inset-0 bg-gradient-to-b from-sage-100/60 via-background/30 to-background" />
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -57,11 +60,8 @@ export default function SignInPage() {
       >
         {/* Logo */}
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 shadow-lg shadow-brand-500/30">
-            <Stethoscope className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight">Neural Hub</h1>
-          <p className="mt-1 text-sm text-muted-foreground">AI Triage Nurse Platform</p>
+          <Logo className="mx-auto h-auto w-[300px] max-w-[85vw] sm:w-[360px]" />
+          <p className="mt-3 text-sm text-muted-foreground">AI Triage Nurse Platform</p>
         </div>
 
         {/* Card */}

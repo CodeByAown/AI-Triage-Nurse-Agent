@@ -140,7 +140,9 @@ export default function TriageChatPage() {
 
   const viewReport = () => {
     if (assessmentId) {
-      router.push(`/reports/${assessmentId}`);
+      // Pass the session token so the (anonymous) viewer is authorized to read
+      // their own report under the new capability-based access control.
+      router.push(`/reports/${assessmentId}?token=${encodeURIComponent(sessionToken)}`);
     }
   };
 
