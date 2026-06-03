@@ -60,6 +60,13 @@ class Patient(Base, UUIDMixin, TimestampMixin):
     )
     organization: Mapped["Organization"] = relationship("Organization", back_populates="patients")
 
+    # Links this clinical record to a login account (patient self-service). Nullable
+    # so org-created and anonymous patients are unaffected. Enables cross-conversation
+    # continuity for authenticated patients (V4 Phase 3).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
+    )
+
     assessments: Mapped[list["Assessment"]] = relationship(
         "Assessment", back_populates="patient", cascade="all, delete-orphan"
     )

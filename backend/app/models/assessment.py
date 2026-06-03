@@ -51,6 +51,12 @@ class Assessment(Base, UUIDMixin, TimestampMixin):
     )
     session_token: Mapped[str] = mapped_column(String(100), unique=True, nullable=False, index=True)
 
+    # Optional link to the continuity-of-care thread this assessment belongs to
+    # (V4 §2). Nullable FK → existing rows and the current flow are unaffected.
+    thread_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("care_threads.id", ondelete="SET NULL"), index=True
+    )
+
     status: Mapped[AssessmentStatus] = mapped_column(
         Enum(AssessmentStatus, values_callable=_ev, create_type=False),
         default=AssessmentStatus.PENDING, nullable=False, index=True

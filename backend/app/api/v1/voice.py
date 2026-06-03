@@ -1,18 +1,28 @@
 """
-Voice transcription endpoint (Phase 0 — Voice-to-Text).
+Voice transcription endpoint (Phase 0 — Voice-to-Text; Phase 5 — Voice Memory).
 
 Accepts a short audio recording captured in the browser (MediaRecorder) and
 returns a plain-text transcript via OpenAI Whisper. The transcript is inserted
 into the Chat with Maya input so the patient can edit it before sending — the
 message itself still flows through the normal triage chat pipeline.
 
-Stateless utility: no PHI is persisted here. Available to the anonymous triage
-flow (no auth) so patients can use voice without an account.
+Phase 5: when the request carries a ``session_token``, the transcript is also
+recorded as a voice ``patient_observation`` so spoken input enters patient memory
+exactly like typed input (Voice → Transcript → Observation → … → History).
 """
-from fastapi import APIRouter, File, HTTPException, UploadFile
+from datetime import datetime, timezone
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.logging import logger
+from app.db.session import get_db
+from app.models.assessment import Assessment
+from app.models.document import ObservationModality
+from app.services import memory_service
 
 router = APIRouter(prefix="/voice", tags=["Voice"])
 
@@ -34,11 +44,16 @@ def _get_client():
 
 
 @router.post("/transcribe")
-async def transcribe_audio(file: UploadFile = File(...)) -> dict:
+async def transcribe_audio(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...),
+    session_token: str | None = Form(default=None),
+) -> dict:
     """Transcribe an uploaded audio clip to text.
 
     Returns ``{"text": "..."}``. Raises a calm, user-safe error otherwise — the
-    frontend surfaces these and offers a retry.
+    frontend surfaces these and offers a retry. When ``session_token`` is present,
+    the transcript is also captured as a voice observation in patient memory.
     """
     if not settings.openai_api_key:
         raise HTTPException(
@@ -73,5 +88,27 @@ async def transcribe_audio(file: UploadFile = File(...)) -> dict:
             status_code=502,
             detail="We couldn't transcribe that audio. Please try again.",
         )
+
+    # Phase 5: record the spoken input into patient memory (best-effort, never
+    # blocks the transcript response). Tied to the patient via the session token.
+    if text and session_token:
+        try:
+            assessment = (
+                await db.execute(select(Assessment).where(Assessment.session_token == session_token))
+            ).scalar_one_or_none()
+            if assessment is not None:
+                await memory_service.record_observation(
+                    db,
+                    patient_id=assessment.patient_id,
+                    organization_id=assessment.organization_id,
+                    source_modality=ObservationModality.VOICE.value,
+                    observation_type="spoken_message",
+                    content=text,
+                    source_type="assessment",
+                    source_id=assessment.id,
+                    observed_at=datetime.now(timezone.utc),
+                )
+        except Exception as e:  # noqa: BLE001
+            logger.error("voice_observation_failed", error=str(e))
 
     return {"text": text}

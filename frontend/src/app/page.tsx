@@ -102,15 +102,31 @@ export default function LandingPage() {
   // Reflect the real auth state in the nav so a signed-in user never sees
   // "Sign in" on the homepage.
   const [user, setUser] = useState<User | null>(null);
+  // Optimistically treat a stored token as authenticated so a logged-in user
+  // never flashes "Sign in" while the soft check resolves.
+  const [hasToken, setHasToken] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     loadStoredToken();
-    authApi
-      .me()
-      .then(setUser)
-      .catch(() => setUser(null));
+    const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+    setHasToken(!!token);
+    if (token) {
+      authApi
+        .meSoft()
+        .then((u) => {
+          setUser(u);
+          setHasToken(true);
+        })
+        .catch(() => {
+          // Token is invalid/expired and couldn't be refreshed → truly signed out.
+          setUser(null);
+          setHasToken(false);
+        });
+    }
   }, []);
+
+  const isAuthenticated = !!user || hasToken;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -131,14 +147,20 @@ export default function LandingPage() {
         )}
       >
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
-          <Link href="/" className="flex shrink-0 items-center gap-2.5" aria-label="Neural Hub home">
-            <LogoMark className="h-9 w-9 sm:hidden" />
-            <Logo className="hidden h-7 w-auto sm:block" />
-          </Link>
+          <a
+            href="https://neuralhub.us"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex shrink-0 items-center gap-2.5"
+            aria-label="Neural Hub — neuralhub.us"
+          >
+            <LogoMark className="h-7 w-7 sm:hidden" />
+            <Logo className="hidden h-5 w-auto sm:block" />
+          </a>
           <nav className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
+            <a href="#triage" className="transition-colors hover:text-foreground">Triage Levels</a>
             <a href="#features" className="transition-colors hover:text-foreground">Features</a>
             <a href="#how-it-works" className="transition-colors hover:text-foreground">How It Works</a>
-            <a href="#triage" className="transition-colors hover:text-foreground">Triage Levels</a>
           </nav>
           <div className="flex shrink-0 items-center gap-2">
             {user ? (

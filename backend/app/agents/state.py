@@ -90,3 +90,8 @@ class TriageState(TypedDict):
     session_token: str
     assessment_id: str
     organization_id: str
+
+    # Cross-conversation memory: a formatted block of the patient's prior history
+    # (facts, past assessments, open threads/actions, documents). Assembled once at
+    # session rebuild and injected into the system prompt so Maya remembers.
+    patient_history: str

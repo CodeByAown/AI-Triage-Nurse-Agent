@@ -85,6 +85,17 @@ async def get_or_rebuild_state(
     # Build state from stored graph_state + messages
     stored_state = assessment.graph_state or {}
 
+    # Cross-conversation memory: assemble the patient's prior history once so Maya
+    # remembers them. Best-effort — never blocks a session if memory is empty/errors.
+    patient_history = ""
+    if patient is not None:
+        try:
+            from app.services.context_service import get_patient_history_block
+
+            patient_history = await get_patient_history_block(db, patient.id)
+        except Exception as e:  # noqa: BLE001
+            logger.error("patient_history_assembly_failed", error=str(e), session=session_token)
+
     state: TriageState = {
         "messages": messages,
         "patient_info": stored_state.get("patient_info", {
@@ -118,6 +129,7 @@ async def get_or_rebuild_state(
         "session_token": session_token,
         "assessment_id": str(assessment.id),
         "organization_id": str(assessment.organization_id),
+        "patient_history": patient_history,
     }
 
     return assessment, state
@@ -222,6 +234,17 @@ async def process_message(
         report_data = result.get("triage_report")
         if report_data:
             await _persist_report(db, assessment, report_data, result)
+
+        # Write durable cross-conversation memory (facts, timeline, continuity).
+        # Best-effort: failures are logged inside and never affect the response.
+        try:
+            from app.services.memory_service import record_completed_assessment
+
+            await record_completed_assessment(
+                db, assessment=assessment, report_data=report_data or {}, state=result
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.error("memory_writeback_failed", error=str(e), session=session_token)
 
     await db.flush()
 

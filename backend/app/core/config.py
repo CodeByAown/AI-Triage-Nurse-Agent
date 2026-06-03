@@ -70,6 +70,9 @@ class Settings(BaseSettings):
     s3_access_key: str = ""
     s3_secret_key: str = ""
     s3_endpoint_url: str = ""
+    # Local filesystem storage for uploaded documents (used when S3 is not set).
+    upload_dir: str = "uploads"
+    max_upload_mb: int = 20
 
     # Rate limiting
     rate_limit_requests: int = 100

@@ -91,6 +91,19 @@ def _format_patient_context(state: TriageState) -> str:
         "Respect all stated allergies and medications in any guidance. If a high-impact "
         "history item is unknown and relevant to the complaint, ask about it.",
     ]
+
+    # Cross-conversation memory (prior facts, assessments, open care items). Maya
+    # should confirm — not re-collect — anything already known here.
+    history = (state.get("patient_history") or "").strip()
+    if history:
+        lines.append("")
+        lines.append(history)
+        lines.append(
+            "Use the history above to provide continuity of care: acknowledge relevant "
+            "prior facts, confirm rather than re-ask known information, and follow up on "
+            "open items when appropriate. Do not assume unconfirmed details are still current."
+        )
+
     return "\n".join(lines)
 
 

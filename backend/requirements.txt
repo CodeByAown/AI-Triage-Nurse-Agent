@@ -41,6 +41,9 @@ aiohttp==3.11.11
 reportlab==4.3.0
 weasyprint==63.1
 
+# ── Document text extraction ──────────────────
+pymupdf==1.27.2.3
+
 # ── Utilities ─────────────────────────────────
 python-slugify==8.0.4
 structlog==24.4.0

@@ -59,12 +59,18 @@ function onAuthPage(): boolean {
 // ── Response interceptor: auto-refresh on 401 (protected requests only) ────
 api.interceptors.response.use(
   (res) => res,
-  async (error: AxiosError & { config?: { _retried?: boolean } }) => {
+  async (error: AxiosError & { config?: { _retried?: boolean; _skipAuthRedirect?: boolean } }) => {
     const status = error.response?.status;
     const reqUrl = error.config?.url;
 
     // Do not intercept auth-endpoint 401s — those are handled by the page.
     if (status !== 401 || typeof window === "undefined" || isAuthEndpoint(reqUrl)) {
+      return Promise.reject(error);
+    }
+
+    // Soft checks (e.g. the public homepage probing auth state) must never bounce
+    // the user to /auth/signin. Reject quietly so the caller can decide.
+    if (error.config?._skipAuthRedirect) {
       return Promise.reject(error);
     }
 
@@ -156,6 +162,16 @@ export const authApi = {
 
   me: async (): Promise<User> => {
     const { data } = await api.get<User>("/auth/me");
+    return data;
+  },
+
+  // Like me(), but never triggers the global 401 redirect — for public pages
+  // (e.g. the homepage) that only want to reflect auth state in the UI.
+  meSoft: async (): Promise<User> => {
+    const { data } = await api.get<User>("/auth/me", {
+      // @ts-expect-error custom flag consumed by the response interceptor
+      _skipAuthRedirect: true,
+    });
     return data;
   },
 
@@ -276,13 +292,75 @@ export const triageApi = {
   },
 };
 
+// ── Documents (medical file upload + extraction) ────────────────────────────
+export interface UploadedDocument {
+  id: string;
+  patient_id: string;
+  doc_type: string;
+  original_filename: string;
+  status: string;
+  extraction?: {
+    summary: string | null;
+    structured: Array<{ label?: string; value?: string; unit?: string | null }>;
+  } | null;
+}
+
+export const documentsApi = {
+  // Upload from inside an active (anonymous) triage session. Extraction runs
+  // server-side; the response includes the structured findings.
+  uploadAnonymous: async (
+    sessionToken: string,
+    file: File,
+    docType?: string
+  ): Promise<UploadedDocument> => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("session_token", sessionToken);
+    if (docType) form.append("doc_type", docType);
+    const { data } = await api.post<UploadedDocument>("/documents/anonymous/upload", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000, // extraction (PDF/vision + structuring) can take a while
+    });
+    return data;
+  },
+
+  // Authenticated upload (provider/patient dashboard), scoped to a patient.
+  upload: async (
+    patientId: string,
+    file: File,
+    docType?: string,
+    assessmentId?: string
+  ): Promise<UploadedDocument> => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("patient_id", patientId);
+    if (docType) form.append("doc_type", docType);
+    if (assessmentId) form.append("assessment_id", assessmentId);
+    const { data } = await api.post<UploadedDocument>("/documents/upload", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 120000,
+    });
+    return data;
+  },
+
+  list: async (patientId: string): Promise<UploadedDocument[]> => {
+    const { data } = await api.get<UploadedDocument[]>("/documents", {
+      params: { patient_id: patientId },
+    });
+    return data;
+  },
+};
+
 // ── Voice (speech-to-text) ──────────────────────────────────────────────────
 export const voiceApi = {
   // Uploads a recorded audio blob and returns the transcribed text. A longer
   // timeout than normal requests — transcription of a clip can take a few seconds.
-  transcribe: async (blob: Blob, filename = "recording.webm"): Promise<string> => {
+  transcribe: async (blob: Blob, filename = "recording.webm", sessionToken?: string): Promise<string> => {
     const form = new FormData();
     form.append("file", blob, filename);
+    // When tied to a triage session, the backend also records the transcript as a
+    // voice observation in patient memory (Phase 5).
+    if (sessionToken) form.append("session_token", sessionToken);
     // Let the browser set the multipart boundary; axios strips the JSON default
     // Content-Type for FormData bodies automatically.
     const { data } = await api.post<{ text: string }>("/voice/transcribe", form, {

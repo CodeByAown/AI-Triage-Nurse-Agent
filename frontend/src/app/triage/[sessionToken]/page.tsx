@@ -10,6 +10,7 @@ import {
   CheckCircle,
   Loader2,
   Mic,
+  Paperclip,
   RotateCcw,
   Square,
   Stethoscope,
@@ -18,7 +19,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { triageApi } from "@/lib/api";
+import { triageApi, documentsApi, getErrorMessage } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { TRIAGE_LEVEL_CONFIG, type TriageLevel } from "@/types";
@@ -63,7 +64,46 @@ export default function TriageChatPage() {
     requestAnimationFrame(() => textareaRef.current?.focus());
   }, []);
 
-  const voice = useVoiceRecorder({ onTranscript: handleTranscript });
+  const voice = useVoiceRecorder({ onTranscript: handleTranscript, sessionToken });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file) return;
+    setIsUploading(true);
+    try {
+      const doc = await documentsApi.uploadAnonymous(sessionToken, file);
+      const findings = doc.extraction?.structured ?? [];
+      const detail =
+        findings.length > 0
+          ? findings
+              .slice(0, 4)
+              .map((f) => `${f.label}${f.value ? `: ${f.value}${f.unit ? ` ${f.unit}` : ""}` : ""}`)
+              .join(" · ")
+          : doc.extraction?.summary || "";
+      // Surface the upload in the chat so the patient sees Maya now has it.
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content:
+            `📎 I've received **${file.name}** and read it into your record.` +
+            (detail ? `\n\nWhat I found: ${detail}` : "") +
+            `\n\nI'll keep this in mind as we continue.`,
+          timestamp: new Date(),
+        },
+      ]);
+      toast.success("Document uploaded and read by Maya.");
+    } catch (err) {
+      toast.error(getErrorMessage(err, "We couldn't process that file. Please try again."));
+    } finally {
+      setIsUploading(false);
+    }
+  };
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -412,6 +452,31 @@ export default function TriageChatPage() {
             </AnimatePresence>
 
             <div className="flex items-end gap-2 sm:gap-3">
+              {/* Attach document */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="application/pdf,image/*,.pdf,.png,.jpg,.jpeg,.webp,.txt"
+                className="hidden"
+                onChange={handleFileSelected}
+              />
+              <Button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isUploading || voice.status === "recording"}
+                size="icon"
+                variant="outline"
+                className="hidden h-[52px] w-[52px] shrink-0 rounded-xl"
+                title="Attach a medical document (lab, prescription, report)"
+                aria-label="Attach a medical document"
+              >
+                {isUploading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Paperclip className="h-4 w-4" />
+                )}
+              </Button>
+
               {/* Microphone button */}
               <Button
                 type="button"

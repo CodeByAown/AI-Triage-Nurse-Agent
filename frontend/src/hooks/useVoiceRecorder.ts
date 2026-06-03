@@ -10,6 +10,8 @@ interface UseVoiceRecorderOptions {
   onTranscript: (text: string) => void;
   /** Auto-stop after this many seconds to avoid oversized uploads. */
   maxDurationSec?: number;
+  /** When set, the transcript is also recorded into patient memory (Phase 5). */
+  sessionToken?: string;
 }
 
 // MediaRecorder mime types we try, in order of preference. The first the browser
@@ -41,7 +43,7 @@ function extensionFor(mime: string | undefined): string {
   return "webm";
 }
 
-export function useVoiceRecorder({ onTranscript, maxDurationSec = 120 }: UseVoiceRecorderOptions) {
+export function useVoiceRecorder({ onTranscript, maxDurationSec = 120, sessionToken }: UseVoiceRecorderOptions) {
   const [status, setStatus] = useState<RecorderStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [elapsed, setElapsed] = useState(0);
@@ -75,7 +77,7 @@ export function useVoiceRecorder({ onTranscript, maxDurationSec = 120 }: UseVoic
       setError(null);
       try {
         const filename = `recording.${extensionFor(mimeRef.current)}`;
-        const text = await voiceApi.transcribe(blob, filename);
+        const text = await voiceApi.transcribe(blob, filename, sessionToken);
         const cleaned = text.trim();
         if (!cleaned) {
           setError("No speech detected. Please try again.");
@@ -89,7 +91,7 @@ export function useVoiceRecorder({ onTranscript, maxDurationSec = 120 }: UseVoic
         setStatus("error");
       }
     },
-    [onTranscript]
+    [onTranscript, sessionToken]
   );
 
   const start = useCallback(async () => {
