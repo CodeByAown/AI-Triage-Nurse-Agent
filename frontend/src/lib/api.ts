@@ -276,6 +276,23 @@ export const triageApi = {
   },
 };
 
+// ── Voice (speech-to-text) ──────────────────────────────────────────────────
+export const voiceApi = {
+  // Uploads a recorded audio blob and returns the transcribed text. A longer
+  // timeout than normal requests — transcription of a clip can take a few seconds.
+  transcribe: async (blob: Blob, filename = "recording.webm"): Promise<string> => {
+    const form = new FormData();
+    form.append("file", blob, filename);
+    // Let the browser set the multipart boundary; axios strips the JSON default
+    // Content-Type for FormData bodies automatically.
+    const { data } = await api.post<{ text: string }>("/voice/transcribe", form, {
+      headers: { "Content-Type": "multipart/form-data" },
+      timeout: 60000,
+    });
+    return data.text ?? "";
+  },
+};
+
 // ── Analytics ─────────────────────────────────────────────────────────────
 export const analyticsApi = {
   getDashboard: async (days = 30): Promise<DashboardStats> => {

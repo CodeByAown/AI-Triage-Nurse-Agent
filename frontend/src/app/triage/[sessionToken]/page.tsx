@@ -9,6 +9,9 @@ import {
   ArrowUp,
   CheckCircle,
   Loader2,
+  Mic,
+  RotateCcw,
+  Square,
   Stethoscope,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,6 +20,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { triageApi } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { TRIAGE_LEVEL_CONFIG, type TriageLevel } from "@/types";
 
 interface Message {
@@ -24,6 +28,12 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   timestamp: Date;
+}
+
+function formatElapsed(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
 export default function TriageChatPage() {
@@ -44,6 +54,16 @@ export default function TriageChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef(false);
+
+  // Voice-to-text: transcript is appended to the input so the patient can edit
+  // it before sending through the normal chat flow.
+  const handleTranscript = useCallback((text: string) => {
+    setInput((prev) => (prev.trim() ? `${prev.trim()} ${text}` : text));
+    // Focus the textarea so the user can immediately edit the transcript.
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, []);
+
+  const voice = useVoiceRecorder({ onTranscript: handleTranscript });
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -337,13 +357,99 @@ export default function TriageChatPage() {
       {!isComplete && (
         <div className="border-t border-border bg-card px-4 py-4">
           <div className="mx-auto max-w-2xl">
-            <div className="flex items-end gap-3">
+            {/* Recording / processing / error status strip */}
+            <AnimatePresence>
+              {(voice.status === "recording" ||
+                voice.status === "processing" ||
+                voice.status === "error") && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 6 }}
+                  className={cn(
+                    "mb-2 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs",
+                    voice.status === "error"
+                      ? "border-red-500/30 bg-red-500/10 text-red-600 dark:text-red-400"
+                      : "border-border bg-muted/60 text-muted-foreground"
+                  )}
+                >
+                  {voice.status === "recording" && (
+                    <>
+                      <span className="flex items-center gap-2 font-medium">
+                        <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
+                        Recording… {formatElapsed(voice.elapsed)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={voice.cancel}
+                        className="font-medium underline-offset-2 hover:underline"
+                      >
+                        Cancel
+                      </button>
+                    </>
+                  )}
+                  {voice.status === "processing" && (
+                    <span className="flex items-center gap-2 font-medium">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Transcribing your recording…
+                    </span>
+                  )}
+                  {voice.status === "error" && (
+                    <>
+                      <span className="font-medium">{voice.error}</span>
+                      <button
+                        type="button"
+                        onClick={voice.retry}
+                        className="flex shrink-0 items-center gap-1 font-semibold underline-offset-2 hover:underline"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" />
+                        Retry
+                      </button>
+                    </>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex items-end gap-2 sm:gap-3">
+              {/* Microphone button */}
+              <Button
+                type="button"
+                onClick={voice.status === "recording" ? voice.stop : voice.start}
+                disabled={
+                  isLoading ||
+                  voice.status === "processing" ||
+                  !voice.supported
+                }
+                size="icon"
+                variant={voice.status === "recording" ? "destructive" : "outline"}
+                className="h-[52px] w-[52px] shrink-0 rounded-xl"
+                title={
+                  !voice.supported
+                    ? "Voice input isn't supported in this browser"
+                    : voice.status === "recording"
+                      ? "Stop recording"
+                      : "Record a voice message"
+                }
+                aria-label={
+                  voice.status === "recording" ? "Stop recording" : "Record a voice message"
+                }
+              >
+                {voice.status === "processing" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : voice.status === "recording" ? (
+                  <Square className="h-4 w-4 fill-current" />
+                ) : (
+                  <Mic className="h-4 w-4" />
+                )}
+              </Button>
+
               <Textarea
                 ref={textareaRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Describe your symptoms or answer Maya's question…"
+                placeholder="Describe your symptoms, or tap the mic to speak…"
                 className="min-h-[52px] max-h-36 resize-none text-sm"
                 disabled={isLoading}
                 rows={2}
