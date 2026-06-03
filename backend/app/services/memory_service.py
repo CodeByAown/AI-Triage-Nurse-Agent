@@ -298,6 +298,135 @@ async def record_completed_assessment(
         logger.error("record_completed_assessment_failed", error=str(e), assessment_id=str(assessment.id))
 
 
+_FACT_EXTRACTION_PROMPT = """You extract durable medical facts a patient states about THEMSELVES from a single chat message.
+
+Return ONLY a JSON object with these keys (each an array, empty if nothing applies):
+- "conditions": chronic/ongoing diagnoses the patient HAS (e.g. "type 2 diabetes", "hypertension", "asthma"). Strings.
+- "medications": drugs the patient currently takes. Objects {"name": str, "dose": str|null}.
+- "allergies": substances the patient is allergic to. Strings.
+
+STRICT RULES:
+- Only include things the patient affirmatively states about their own health ("I have…", "I take…", "I'm allergic to…", "diagnosed with…").
+- Do NOT include transient symptoms (headache, fever, pain) — those are not conditions.
+- Do NOT include things they DENY, ask about, or that are hypothetical/negated ("I don't have diabetes" → nothing).
+- Do NOT infer. If unsure, leave it out.
+- Normalize obvious names (e.g. "sugar/diabetic" → "diabetes"); keep the patient's wording otherwise.
+
+Message: __MESSAGE__
+
+JSON:"""
+
+
+def _extraction_llm():
+    """A small, low-temperature LLM for structured fact extraction. Built lazily
+    so importing this module never requires API keys."""
+    from app.core.config import settings
+
+    if settings.openai_api_key:
+        from langchain_openai import ChatOpenAI
+
+        return ChatOpenAI(
+            model=settings.openai_model,
+            api_key=settings.openai_api_key,
+            temperature=0,
+            max_tokens=400,
+        )
+    from langchain_anthropic import ChatAnthropic
+
+    return ChatAnthropic(
+        model=settings.anthropic_model,
+        api_key=settings.anthropic_api_key,
+        temperature=0,
+        max_tokens=400,
+    )
+
+
+def _parse_json_object(raw: str) -> dict:
+    raw = (raw or "").strip()
+    if "```json" in raw:
+        raw = raw.split("```json")[1].split("```")[0].strip()
+    elif "```" in raw:
+        raw = raw.split("```")[1].split("```")[0].strip()
+    # Trim to the outermost object if the model added prose.
+    start, end = raw.find("{"), raw.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        raw = raw[start : end + 1]
+    import json as _json
+
+    return _json.loads(raw)
+
+
+async def capture_history_facts_from_message(
+    db: AsyncSession,
+    *,
+    patient_id: uuid.UUID,
+    organization_id: uuid.UUID | None,
+    message: str,
+    source_assessment_id: uuid.UUID | None = None,
+) -> int:
+    """Extract self-reported conditions/medications/allergies from a single patient
+    message and persist them as clinical_facts so they're remembered immediately —
+    even if the assessment never completes.
+
+    Best-effort: returns the number of facts written; logs and swallows all errors.
+    Intended for authenticated (persistent) patients only, to bound LLM cost.
+    """
+    text = (message or "").strip()
+    # Cheap gate: skip trivial messages with no chance of clinical history.
+    if len(text) < 4:
+        return 0
+    try:
+        llm = _extraction_llm()
+        prompt = _FACT_EXTRACTION_PROMPT.replace("__MESSAGE__", text[:2000])
+        resp = await llm.ainvoke(prompt)
+        data = _parse_json_object(getattr(resp, "content", "") or "")
+    except Exception as e:  # noqa: BLE001
+        logger.error("fact_extraction_failed", error=str(e), patient_id=str(patient_id))
+        return 0
+
+    written = 0
+    try:
+        for cond in (data.get("conditions") or []):
+            label = cond if isinstance(cond, str) else (cond.get("name") if isinstance(cond, dict) else None)
+            if label and str(label).strip():
+                f = await upsert_clinical_fact(
+                    db, patient_id=patient_id, organization_id=organization_id,
+                    category=FactCategory.CONDITION.value, label=str(label),
+                    source=FactSource.PATIENT_REPORTED.value,
+                    source_assessment_id=source_assessment_id,
+                )
+                written += 1 if f else 0
+        for med in (data.get("medications") or []):
+            if isinstance(med, dict):
+                label, value = med.get("name") or med.get("drug"), med.get("dose") or med.get("dosage")
+            else:
+                label, value = str(med), None
+            if label and str(label).strip():
+                f = await upsert_clinical_fact(
+                    db, patient_id=patient_id, organization_id=organization_id,
+                    category=FactCategory.MEDICATION.value, label=str(label), value=value,
+                    source=FactSource.PATIENT_REPORTED.value,
+                    source_assessment_id=source_assessment_id,
+                )
+                written += 1 if f else 0
+        for allergy in (data.get("allergies") or []):
+            label = allergy if isinstance(allergy, str) else (allergy.get("name") if isinstance(allergy, dict) else None)
+            if label and str(label).strip():
+                f = await upsert_clinical_fact(
+                    db, patient_id=patient_id, organization_id=organization_id,
+                    category=FactCategory.ALLERGY.value, label=str(label),
+                    source=FactSource.PATIENT_REPORTED.value,
+                    source_assessment_id=source_assessment_id,
+                )
+                written += 1 if f else 0
+    except Exception as e:  # noqa: BLE001
+        logger.error("fact_capture_persist_failed", error=str(e), patient_id=str(patient_id))
+
+    if written:
+        logger.info("history_facts_captured", patient_id=str(patient_id), count=written)
+    return written
+
+
 async def record_observation(
     db: AsyncSession,
     *,

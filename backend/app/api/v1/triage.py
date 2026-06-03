@@ -11,7 +11,7 @@ from app.api.deps import CurrentUser, OptionalUser
 from app.db.session import get_db
 from app.models.assessment import Assessment, AssessmentStatus, Conversation, TriageReport
 from app.models.patient import Patient
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.schemas.assessment import (
     AssessmentCreate,
     AssessmentOut,
@@ -177,38 +177,64 @@ async def send_triage_message(
 
 @router.post("/anonymous/start")
 async def start_anonymous_session(
+    current_user: OptionalUser,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict:
+    """Start a triage session.
+
+    Two identity modes share this endpoint:
+      • Anonymous guest (no/invalid token) → a fresh throwaway patient.
+      • Authenticated patient (role == patient) → their ONE persistent patient
+        record (created on first use), so every conversation accumulates against
+        the same identity and Maya remembers them across visits.
+    Org-staff users keep the guest behavior here; they use the clinician /sessions
+    flow for their own patients.
+    """
     from app.models.organization import Organization
 
-    org_result = await db.execute(
-        select(Organization).where(Organization.is_active == True).limit(1)
-    )
-    org = org_result.scalar_one_or_none()
-    if not org:
-        raise HTTPException(status_code=503, detail="No active organization found")
+    patient: Patient | None = None
+    is_persistent = False
 
-    patient = Patient(
-        first_name="Anonymous",
-        last_name="Patient",
-        organization_id=org.id,
-    )
-    db.add(patient)
-    await db.flush()
+    if current_user is not None and current_user.role == UserRole.PATIENT:
+        from app.services.patient_service import resolve_patient_for_user
+
+        patient = await resolve_patient_for_user(db, current_user)
+        is_persistent = patient is not None
+
+    if patient is None:
+        org_result = await db.execute(
+            select(Organization).where(Organization.is_active == True).limit(1)
+        )
+        org = org_result.scalar_one_or_none()
+        if not org:
+            raise HTTPException(status_code=503, detail="No active organization found")
+
+        patient = Patient(
+            first_name="Anonymous",
+            last_name="Patient",
+            organization_id=org.id,
+        )
+        db.add(patient)
+        await db.flush()
 
     assessment = await create_session(
         db=db,
         patient_id=patient.id,
-        organization_id=org.id,
+        organization_id=patient.organization_id,
     )
 
     await write_audit(
         db,
         action="triage_started",
         resource_type="assessment",
-        organization_id=org.id,
+        user_id=current_user.id if current_user else None,
+        organization_id=patient.organization_id,
         resource_id=str(assessment.id),
-        metadata={"anonymous": True, "session_token": assessment.session_token},
+        metadata={
+            "anonymous": not is_persistent,
+            "persistent_patient": is_persistent,
+            "session_token": assessment.session_token,
+        },
     )
 
     return {

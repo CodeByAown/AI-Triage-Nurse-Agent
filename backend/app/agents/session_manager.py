@@ -192,6 +192,27 @@ async def process_message(
         )
         db.add(ai_conv)
 
+    # Incremental memory: for authenticated (persistent) patients, capture any
+    # self-reported conditions/medications/allergies from THIS message right away,
+    # so Maya remembers them in later conversations even if this one never
+    # completes. Best-effort and bounded to logged-in patients to limit LLM cost.
+    try:
+        patient = (
+            await db.execute(select(Patient).where(Patient.id == assessment.patient_id))
+        ).scalar_one_or_none()
+        if patient is not None and patient.user_id is not None:
+            from app.services.memory_service import capture_history_facts_from_message
+
+            await capture_history_facts_from_message(
+                db,
+                patient_id=patient.id,
+                organization_id=assessment.organization_id,
+                message=user_message,
+                source_assessment_id=assessment.id,
+            )
+    except Exception as e:  # noqa: BLE001
+        logger.error("incremental_memory_capture_failed", error=str(e), session=session_token)
+
     # Update assessment with new state
     assessment.graph_state = {
         "patient_info": result.get("patient_info", state.get("patient_info", {})),

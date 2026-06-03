@@ -39,10 +39,10 @@ export default function SignInPage() {
         localStorage.setItem("refresh_token", tokens.refresh_token);
       }
       toast.success("Welcome back!");
-      // Route by role: patients go to their triage flow; clinic staff/admins to
-      // the operational dashboard.
+      // Route by role: patients go to their own dashboard (where Maya remembers
+      // them); clinic staff/admins to the operational dashboard.
       const me = await authApi.me().catch(() => null);
-      router.push(me?.role === "patient" ? "/triage/start" : "/dashboard");
+      router.push(me?.role === "patient" ? "/patient" : "/dashboard");
     } catch (err) {
       toast.error(getErrorMessage(err, "Invalid email or password"));
     }

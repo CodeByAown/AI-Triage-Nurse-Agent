@@ -163,9 +163,9 @@ export default function LandingPage() {
             <a href="#how-it-works" className="transition-colors hover:text-foreground">How It Works</a>
           </nav>
           <div className="flex shrink-0 items-center gap-2">
-            {user ? (
+            {isAuthenticated ? (
               <Button size="sm" variant="brand" asChild>
-                <Link href="/dashboard">
+                <Link href={user?.role === "patient" ? "/patient" : "/dashboard"}>
                   Go to Dashboard
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Link>

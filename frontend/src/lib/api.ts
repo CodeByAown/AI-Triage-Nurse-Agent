@@ -10,6 +10,15 @@ import type {
   User,
 } from "@/types";
 
+// Allow request configs to opt out of the global 401→signin redirect (used by
+// soft auth probes on public pages). Declared here so it's strongly typed
+// everywhere instead of suppressed with @ts-expect-error.
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    _skipAuthRedirect?: boolean;
+  }
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // ── Axios instance ────────────────────────────────────────────────────────
@@ -169,7 +178,6 @@ export const authApi = {
   // (e.g. the homepage) that only want to reflect auth state in the UI.
   meSoft: async (): Promise<User> => {
     const { data } = await api.get<User>("/auth/me", {
-      // @ts-expect-error custom flag consumed by the response interceptor
       _skipAuthRedirect: true,
     });
     return data;
@@ -347,6 +355,78 @@ export const documentsApi = {
     const { data } = await api.get<UploadedDocument[]>("/documents", {
       params: { patient_id: patientId },
     });
+    return data;
+  },
+};
+
+// ── Patient self-service dashboard ──────────────────────────────────────────
+export interface PatientFact {
+  id: string;
+  category: string;
+  label: string;
+  value: string | null;
+  unit: string | null;
+  status: string;
+  source: string;
+  updated_at: string;
+}
+
+export interface PatientCareAction {
+  id: string;
+  type: string;
+  description: string;
+  status: string;
+  due_at: string | null;
+}
+
+export interface PatientAssessmentSummary {
+  id: string;
+  session_token: string;
+  chief_complaint: string | null;
+  triage_level: string | null;
+  status: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+}
+
+export interface PatientDocumentSummary {
+  id: string;
+  doc_type: string;
+  original_filename: string;
+  status: string;
+  created_at: string | null;
+}
+
+export interface PatientTimelineEvent {
+  id: string;
+  event_type: string;
+  title: string;
+  description: string | null;
+  occurred_at: string;
+  severity: string | null;
+  source_type: string | null;
+}
+
+export interface PatientDashboard {
+  patient: {
+    id?: string;
+    first_name: string | null;
+    last_name: string | null;
+    age?: number | null;
+    biological_sex?: string | null;
+  } | null;
+  facts: PatientFact[];
+  open_actions: PatientCareAction[];
+  assessments: PatientAssessmentSummary[];
+  documents: PatientDocumentSummary[];
+  timeline: PatientTimelineEvent[];
+}
+
+export const patientApi = {
+  // The authenticated patient's own dashboard payload (profile + remembered
+  // history + assessments + documents + timeline) in a single call.
+  mySummary: async (): Promise<PatientDashboard> => {
+    const { data } = await api.get<PatientDashboard>("/patients/me/summary");
     return data;
   },
 };
