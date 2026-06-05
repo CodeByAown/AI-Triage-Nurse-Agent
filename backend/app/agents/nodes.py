@@ -12,6 +12,7 @@ from langchain_core.language_models.chat_models import BaseChatModel
 
 from app.agents.prompts import (
     ADAPTIVE_QUESTION_PROMPT,
+    HISTORY_COLLECTION_PROMPT,
     INTAKE_PROMPT,
     REPORT_GENERATION_PROMPT,
     RISK_ASSESSMENT_PROMPT,
@@ -468,9 +469,14 @@ async def report_generation_node(state: TriageState) -> dict[str, Any]:
                 f"Format as JSON with these exact keys: "
                 "patient_summary, symptoms_summary, risk_assessment, "
                 "clinical_concerns (array), recommended_next_step, "
-                "self_care_measures (array of safe interim/OTC measures respecting the "
-                "patient's allergies and medications), "
-                "warning_signs (array of red-flag symptoms that should prompt immediate care), "
+                "what_to_do_now (array of ordered, specific action steps the patient "
+                "should take now), "
+                "medication_guidance (array of objects, each {name, purpose, how_to_take, "
+                "cautions}, covering the patient's own relevant medications and any general "
+                "OTC options — NEVER prescription drugs/doses; respect allergies), "
+                "self_care_measures (array of detailed interim/OTC self-care sentences "
+                "respecting the patient's allergies and medications), "
+                "warning_signs (array of specific red-flag symptoms that should prompt immediate care), "
                 "urgency_level, urgency_rationale, followup_recommendation, escalation_notes, "
                 "care_pathway (one of: emergency_services/emergency_department/urgent_care/"
                 "primary_care/telehealth/home_care), "
@@ -497,6 +503,8 @@ async def report_generation_node(state: TriageState) -> dict[str, Any]:
             "risk_assessment": "Assessment completed with AI triage assistance.",
             "clinical_concerns": [],
             "recommended_next_step": "Please consult with a healthcare provider.",
+            "what_to_do_now": [],
+            "medication_guidance": [],
             "urgency_level": state.get("triage_level", "L3_MODERATE"),
             "urgency_rationale": "Based on symptoms reported.",
             "followup_recommendation": "Follow up with your primary care provider.",
@@ -528,11 +536,53 @@ async def report_generation_node(state: TriageState) -> dict[str, Any]:
             items = [items]
         return "\n".join(f"- {str(i)}" for i in items if str(i).strip())
 
+    def _med_bullets(items) -> str:
+        """Render structured medication_guidance objects into readable bullets."""
+        if not items:
+            return ""
+        lines: list[str] = []
+        for m in items:
+            if isinstance(m, dict):
+                name = str(m.get("name", "")).strip()
+                purpose = str(m.get("purpose", "")).strip()
+                how = str(m.get("how_to_take", "")).strip()
+                cautions = str(m.get("cautions", "")).strip()
+                if not name and not purpose:
+                    continue
+                head = f"- **{name}**" if name else "-"
+                if purpose:
+                    head += f" — {purpose}"
+                lines.append(head)
+                if how:
+                    lines.append(f"    - How to take: {how}")
+                if cautions:
+                    lines.append(f"    - Caution: {cautions}")
+            elif str(m).strip():
+                lines.append(f"- {str(m).strip()}")
+        return "\n".join(lines)
+
     parts = [level_messages.get(level, "✅ **Assessment Complete**")]
 
     next_step = str(report_data.get("recommended_next_step", "")).strip()
     if next_step:
         parts.append(f"**What to do next:**\n{next_step}")
+
+    steps_now = report_data.get("what_to_do_now") or []
+    if steps_now and level not in ("L1_EMERGENCY",):
+        parts.append("**Steps to take now:**\n" + _bullets(steps_now))
+
+    meds = report_data.get("medication_guidance") or []
+    if meds and level not in ("L1_EMERGENCY",):
+        med_text = _med_bullets(meds)
+        if med_text:
+            parts.append(
+                "**Medication guidance:**\n"
+                + med_text
+                + "\n\n_This is general information, not a prescription. Keep taking your "
+                "prescribed medications as directed, and confirm any over-the-counter "
+                "choice with a pharmacist or provider — especially with your allergies and "
+                "current medications._"
+            )
 
     self_care = report_data.get("self_care_measures") or []
     if self_care and level not in ("L1_EMERGENCY",):

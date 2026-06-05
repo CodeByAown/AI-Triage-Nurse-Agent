@@ -162,6 +162,14 @@ class TriageReport(Base, UUIDMixin, TimestampMixin):
     risk_assessment: Mapped[str] = mapped_column(Text, nullable=False)
     clinical_concerns: Mapped[list] = mapped_column(JSONB, default=list)
     recommended_next_step: Mapped[str] = mapped_column(Text, nullable=False)
+
+    # Richer, patient-facing guidance (V4 report enrichment). Additive + nullable
+    # so older reports (which lack these) and existing rows are unaffected.
+    what_to_do_now: Mapped[list] = mapped_column(JSONB, default=list)
+    medication_guidance: Mapped[list] = mapped_column(JSONB, default=list)
+    self_care_measures: Mapped[list] = mapped_column(JSONB, default=list)
+    warning_signs: Mapped[list] = mapped_column(JSONB, default=list)
+
     urgency_level: Mapped[TriageLevel] = mapped_column(
         Enum(TriageLevel, values_callable=_ev, create_type=False), nullable=False
     )

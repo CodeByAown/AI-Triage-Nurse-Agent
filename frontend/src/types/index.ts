@@ -99,6 +99,10 @@ export interface TriageReport {
   risk_assessment: string;
   clinical_concerns: string[];
   recommended_next_step: string;
+  what_to_do_now?: string[];
+  medication_guidance?: MedicationGuidance[];
+  self_care_measures?: string[];
+  warning_signs?: string[];
   urgency_level: TriageLevel;
   urgency_rationale: string;
   followup_recommendation: string;
@@ -108,6 +112,13 @@ export interface TriageReport {
   confidence_breakdown: Record<string, number>;
   report_pdf_url: string | null;
   generated_at: string;
+}
+
+export interface MedicationGuidance {
+  name?: string;
+  purpose?: string;
+  how_to_take?: string;
+  cautions?: string;
 }
 
 export interface RiskScore {

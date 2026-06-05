@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Hide the Next.js dev "Static Route" / ISR status indicator that appears in
+  // the bottom-left corner during development.
+  devIndicators: {
+    appIsrStatus: false,
+  },
   experimental: {
     typedRoutes: true,
   },

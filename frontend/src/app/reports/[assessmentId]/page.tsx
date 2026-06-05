@@ -12,7 +12,11 @@ import {
   Download,
   Heart,
   Info,
+  Leaf,
+  ListChecks,
+  Pill,
   Shield,
+  ShieldAlert,
   Stethoscope,
   TrendingUp,
   User,
@@ -132,6 +136,12 @@ export default function ReportPage() {
   const clinicalConcerns = report.clinical_concerns ?? [];
   const confidenceBreakdown = report.confidence_breakdown ?? {};
   const urgencyLevelLabel = (report.urgency_level ?? "").replace("_", " ");
+  const whatToDoNow = report.what_to_do_now ?? [];
+  const medicationGuidance = (report.medication_guidance ?? []).filter(
+    (m) => (m?.name || m?.purpose || m?.how_to_take || m?.cautions)
+  );
+  const selfCareMeasures = report.self_care_measures ?? [];
+  const warningSigns = report.warning_signs ?? [];
 
   return (
     <div className="min-h-screen bg-background">
@@ -327,8 +337,123 @@ export default function ReportPage() {
               </motion.div>
             )}
 
+            {/* What To Do Now */}
+            {whatToDoNow.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <ListChecks className="h-4 w-4 text-primary" />
+                      What To Do Now
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ol className="space-y-2.5">
+                      {whatToDoNow.map((step, i) => (
+                        <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                            {i + 1}
+                          </span>
+                          <span className="leading-relaxed">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Medication Guidance */}
+            {medicationGuidance.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.34 }}>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Pill className="h-4 w-4 text-primary" />
+                      Medication Guidance
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {medicationGuidance.map((med, i) => (
+                      <div key={i} className="rounded-lg border border-border bg-muted/40 p-3">
+                        {med.name && <p className="text-sm font-semibold">{med.name}</p>}
+                        {med.purpose && (
+                          <p className="mt-0.5 text-sm text-muted-foreground">{med.purpose}</p>
+                        )}
+                        {med.how_to_take && (
+                          <p className="mt-2 text-sm text-muted-foreground">
+                            <span className="font-medium text-foreground">How to take: </span>
+                            {med.how_to_take}
+                          </p>
+                        )}
+                        {med.cautions && (
+                          <p className="mt-1 text-sm text-orange-600 dark:text-orange-400">
+                            <span className="font-medium">Caution: </span>
+                            {med.cautions}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                    <p className="text-xs text-muted-foreground">
+                      This is general information, not a prescription. Keep taking your prescribed
+                      medications as directed, and confirm any over-the-counter choice with a
+                      pharmacist or provider — especially given your allergies and current medications.
+                    </p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Self-Care Measures */}
+            {selfCareMeasures.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.36 }}>
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Leaf className="h-4 w-4 text-primary" />
+                      Self-Care &amp; Comfort Measures
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {selfCareMeasures.map((item, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-mint-500" />
+                          <span className="leading-relaxed">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Warning Signs */}
+            {warningSigns.length > 0 && (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.38 }}>
+                <Card className="border-red-500/30 bg-red-500/5">
+                  <CardHeader className="pb-3">
+                    <CardTitle className="flex items-center gap-2 text-base text-red-600 dark:text-red-400">
+                      <ShieldAlert className="h-4 w-4" />
+                      Seek Emergency Care If You Experience
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2">
+                      {warningSigns.map((sign, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                          <span className="leading-relaxed">{sign}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
             {/* Follow-up */}
-            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-base">

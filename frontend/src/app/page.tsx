@@ -93,7 +93,7 @@ const TRIAGE_LEVELS = [
 
 const STATS = [
   { value: "< 8 min", label: "Average triage time" },
-  { value: "99.2%", label: "Emergency detection rate" },
+  { value: "94%", label: "Emergency detection rate" },
   { value: "5 levels", label: "Clinical triage pathways" },
   { value: "24/7", label: "Always available" },
 ];

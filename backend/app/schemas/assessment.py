@@ -51,6 +51,10 @@ class TriageReportOut(BaseModel):
     risk_assessment: str
     clinical_concerns: list
     recommended_next_step: str
+    what_to_do_now: list = []
+    medication_guidance: list = []
+    self_care_measures: list = []
+    warning_signs: list = []
     urgency_level: TriageLevel
     urgency_rationale: str
     followup_recommendation: str

@@ -346,13 +346,54 @@ async def _persist_report(
             except ValueError:
                 return "L3_MODERATE"
 
+        def _str_list(val) -> list:
+            """Coerce a field into a clean list of non-empty strings."""
+            if val is None:
+                return []
+            if isinstance(val, str):
+                val = [val]
+            if not isinstance(val, list):
+                return []
+            return [str(i).strip() for i in val if str(i).strip()]
+
+        def _med_list(val) -> list:
+            """Keep medication_guidance entries as structured dicts (or strings)."""
+            if not isinstance(val, list):
+                return []
+            out: list = []
+            for m in val:
+                if isinstance(m, dict):
+                    entry = {
+                        "name": str(m.get("name", "")).strip(),
+                        "purpose": str(m.get("purpose", "")).strip(),
+                        "how_to_take": str(m.get("how_to_take", "")).strip(),
+                        "cautions": str(m.get("cautions", "")).strip(),
+                    }
+                    if entry["name"] or entry["purpose"]:
+                        out.append(entry)
+                elif str(m).strip():
+                    out.append({"name": "", "purpose": str(m).strip(), "how_to_take": "", "cautions": ""})
+            return out
+
+        # The primary CTA stays a single, clean action; the richer guidance now
+        # lives in its own columns/sections rather than being bundled into the
+        # next-step text. Fall back to the bundled compose only if the model gave
+        # no clean next step at all.
+        next_step = str(report_data.get("recommended_next_step", "") or "").strip()
+        if not next_step:
+            next_step = _compose_next_step(report_data)
+
         report = TriageReport(
             assessment_id=assessment.id,
             patient_summary=to_str(report_data.get("patient_summary", "")),
             symptoms_summary=to_str(report_data.get("symptoms_summary", "")),
             risk_assessment=to_str(report_data.get("risk_assessment", "")),
             clinical_concerns=report_data.get("clinical_concerns", []),
-            recommended_next_step=_compose_next_step(report_data),
+            recommended_next_step=next_step,
+            what_to_do_now=_str_list(report_data.get("what_to_do_now")),
+            medication_guidance=_med_list(report_data.get("medication_guidance")),
+            self_care_measures=_str_list(report_data.get("self_care_measures")),
+            warning_signs=_str_list(report_data.get("warning_signs")),
             urgency_level=TriageLevel(
                 map_triage_level(report_data.get("urgency_level", assessment.triage_level.value if assessment.triage_level else "L3_MODERATE"))
             ),

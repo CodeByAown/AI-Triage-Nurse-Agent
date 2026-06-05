@@ -91,24 +91,29 @@ Assign each relevant risk a score 0.0-1.0. Overall urgency = weighted maximum, a
 Respond ONLY with the requested JSON.
 """
 
-REPORT_GENERATION_PROMPT = """Generate a comprehensive, professional triage report based on the FULL interaction, explicitly incorporating the patient's history, medications, and allergies from the context block.
+REPORT_GENERATION_PROMPT = """Generate a comprehensive, genuinely USEFUL triage report based on the FULL interaction, explicitly incorporating the patient's history, medications, and allergies from the context block. The patient will read this — so the guidance must be detailed, specific, and actionable, not generic. Imagine an experienced nurse spending real time explaining exactly what to do and why.
 
 Produce these fields:
-1. patient_summary: Demographics + relevant background + reason for visit.
+1. patient_summary: Demographics + relevant background + reason for visit (2-4 sentences).
 2. symptoms_summary: All reported symptoms with OPQRST detail where available.
-3. risk_assessment: Clinical evaluation; how the patient's history modifies risk.
-4. clinical_concerns: The most important clinical flags (array).
-5. recommended_next_step: Clear, specific action (call 911 / go to ED / urgent care today / see PCP within 24-72h / telehealth / self-care at home).
-6. self_care_measures: Practical, safe interim measures and OTC options appropriate to the acuity, RESPECTING the patient's allergies/medications. Use "as directed on the label" language; never prescription dosing. (array of short strings)
-7. warning_signs: Specific red-flag symptoms that should prompt the patient to seek immediate/emergency care. (array of short strings)
-8. urgency_level: L1_EMERGENCY/L2_URGENT/L3_MODERATE/L4_LOW_RISK/L5_SELF_CARE with rationale.
-9. urgency_rationale: Why this level, referencing symptoms + history.
-10. followup_recommendation: What to do next and the timeframe.
-11. escalation_notes: Emergency flags / concerning patterns (or null).
-12. care_pathway: one of emergency_services/emergency_department/urgent_care/primary_care/telehealth/home_care.
-13. reasoning_chain: Ordered reasoning steps (array).
+3. risk_assessment: Clinical evaluation; explain HOW the patient's history/medications modify the risk, in plain language.
+4. clinical_concerns: The most important clinical flags (array of clear strings).
+5. recommended_next_step: ONE clear primary action with specifics — WHAT to do, WHERE to go, and the exact TIMEFRAME (e.g. "Call 911 now", "Go to an urgent care center today", "Book a primary-care visit within 24-72 hours", "Manage at home and monitor"). Be concrete; never just "consult a provider".
+6. what_to_do_now: An ordered, step-by-step list of concrete actions the patient should take starting right now, in priority order (e.g. "Stop strenuous activity and rest", "Take your blood pressure if you have a cuff and write down the reading", "Bring a list of your current medications to the appointment"). Each item a full, specific instruction. (array of strings)
+7. medication_guidance: Detailed, practical medication information. (array of objects, each with keys: "name", "purpose", "how_to_take", "cautions"). Cover BOTH:
+   - The patient's OWN current medications relevant to this complaint — what they're for, a reminder to keep taking them as prescribed unless a provider says otherwise, and any interaction/caution relevant to the symptoms.
+   - General OTC options appropriate to the acuity (e.g. acetaminophen or ibuprofen for pain/fever, oral rehydration, saline rinse, antihistamine) — ALWAYS "as directed on the package label".
+   STRICT SAFETY: never prescribe prescription medications, antibiotics, controlled substances, or specific prescription doses. "how_to_take" for OTC items uses label/general guidance only ("follow the dosing on the label"). "cautions" must flag the patient's allergies and any condition/medication conflict. If no medications are relevant, return an empty array.
+8. self_care_measures: Practical, detailed interim comfort/self-care measures appropriate to the acuity, RESPECTING allergies/medications — each a full actionable sentence, not a single word (e.g. "Rest and avoid exertion for the next 24-48 hours", "Sip fluids regularly to stay hydrated — small amounts often"). (array of strings)
+9. warning_signs: Specific red-flag symptoms that should make the patient seek immediate/emergency care, each concrete (e.g. "Chest pain that spreads to your arm, jaw, or back", "Shortness of breath at rest"). (array of strings)
+10. urgency_level: L1_EMERGENCY/L2_URGENT/L3_MODERATE/L4_LOW_RISK/L5_SELF_CARE.
+11. urgency_rationale: Why this level, referencing the specific symptoms + history that drove it.
+12. followup_recommendation: A detailed follow-up plan — who to see, why, the timeframe, and what to tell or ask them (e.g. "See your primary-care provider within 3 days; ask about adjusting your blood-pressure medication and request a basic metabolic panel").
+13. escalation_notes: Emergency flags / concerning patterns (or null).
+14. care_pathway: one of emergency_services/emergency_department/urgent_care/primary_care/telehealth/home_care.
+15. reasoning_chain: Ordered reasoning steps (array).
 
-Write it as a clinical document a provider would value. Be specific and actionable — avoid vague filler like "consult a provider" without saying when or why. ONLY return valid JSON.
+Write it as a document a provider would value AND a patient can act on. Be specific and personalized — reference THIS patient's actual symptoms, history, and medications. Avoid vague filler. ONLY return valid JSON.
 """
 
 ADAPTIVE_QUESTION_PROMPT = """Decide the single most clinically valuable question to ask next, using the conversation and the patient's history context.
